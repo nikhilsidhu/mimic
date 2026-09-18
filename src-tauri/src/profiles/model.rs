@@ -1,0 +1,98 @@
+use std::collections::BTreeMap;
+
+use serde::{Deserialize, Serialize};
+use time::OffsetDateTime;
+
+use crate::settings::SettingsMap;
+
+/// Bumped when a file's shape changes in a way older builds cannot read.
+pub const SCHEMA_VERSION: u32 = 1;
+
+/// A full set of portable settings. The file is also the export format.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Profile {
+    pub schema: u32,
+    pub id: String,
+    pub name: String,
+    #[serde(with = "time::serde::rfc3339")]
+    pub created: OffsetDateTime,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated: OffsetDateTime,
+    pub settings: SettingsMap,
+    /// Whitelisted client preference categories, `category -> data`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub client: BTreeMap<String, serde_json::Value>,
+}
+
+impl Profile {
+    pub fn new(name: &str, settings: SettingsMap) -> Self {
+        let now = OffsetDateTime::now_utc();
+        Profile {
+            schema: SCHEMA_VERSION,
+            id: format!("{:x}", now.unix_timestamp_nanos()),
+            name: name.to_owned(),
+            created: now,
+            updated: now,
+            settings,
+            client: BTreeMap::new(),
+        }
+    }
+}
+
+/// Per-champion overrides, applied on top of whichever profile is active.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Overlay {
+    pub schema: u32,
+    pub champion_id: u32,
+    #[serde(with = "time::serde::rfc3339")]
+    pub updated: OffsetDateTime,
+    /// Only the keys this champion overrides.
+    pub settings: SettingsMap,
+}
+
+impl Overlay {
+    pub fn new(champion_id: u32, settings: SettingsMap) -> Self {
+        Overlay { schema: SCHEMA_VERSION, champion_id, updated: OffsetDateTime::now_utc(), settings }
+    }
+}
+
+/// `accounts.json`: which profile each Riot account uses, keyed by puuid.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Accounts {
+    pub schema: u32,
+    pub accounts: BTreeMap<String, Account>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Account {
+    /// `gameName#tagLine` as last seen, for display only.
+    pub display_name: String,
+    pub profile_id: Option<String>,
+    /// Apply the profile automatically when this account logs in.
+    #[serde(default)]
+    pub auto_apply: bool,
+}
+
+/// The settings as they were right before mimic changed them.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Snapshot {
+    pub schema: u32,
+    #[serde(with = "time::serde::rfc3339")]
+    pub taken: OffsetDateTime,
+    /// Why it was taken, e.g. "before applying 'Main'".
+    pub reason: String,
+    pub puuid: Option<String>,
+    pub settings: SettingsMap,
+}
+
+impl Snapshot {
+    pub fn new(reason: &str, puuid: Option<&str>, settings: SettingsMap) -> Self {
+        Snapshot {
+            schema: SCHEMA_VERSION,
+            taken: OffsetDateTime::now_utc(),
+            reason: reason.to_owned(),
+            puuid: puuid.map(str::to_owned),
+            settings,
+        }
+    }
+}

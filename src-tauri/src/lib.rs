@@ -1,4 +1,5 @@
 pub mod lcu;
+pub mod profiles;
 pub mod settings;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
