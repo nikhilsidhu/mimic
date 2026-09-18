@@ -1,4 +1,5 @@
 pub mod lcu;
+pub mod platform;
 pub mod profiles;
 pub mod settings;
 
