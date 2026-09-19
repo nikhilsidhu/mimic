@@ -31,7 +31,9 @@ export function onViewChanged(onChange: () => void): () => void {
 
 // Every action resolves to a sentence to show, and rejects with one on failure.
 export const applyProfile = (id: string) => invoke<string>("apply_profile", { id });
-export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
+export const renameProfile = (id: string, name: string) => invoke<string>("rename_profile", { id, name });
+export const deleteProfile = (id: string) => invoke<string>("delete_profile", { id });
+export const setAutoApply =(enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
 export const saveCurrent =(name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const copyRiotId = () => invoke<string>("copy_riot_id");

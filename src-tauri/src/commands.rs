@@ -74,12 +74,30 @@ pub fn set_auto_apply(engine: State<Engine>, enabled: bool) -> Result<(), String
     engine.set_auto_apply(enabled).map_err(|err| err.to_string())
 }
 
-#[tauri::command]
-pub async fn save_current(engine: State<'_, Engine>, name: String) -> Answer {
+fn valid_name(name: &str) -> Result<&str, String> {
     let name = name.trim();
     if name.is_empty() || name.chars().count() > MAX_NAME {
         return Err(format!("A profile name needs 1 to {MAX_NAME} characters"));
     }
+    Ok(name)
+}
+
+#[tauri::command]
+pub async fn rename_profile(engine: State<'_, Engine>, id: String, name: String) -> Answer {
+    let name = valid_name(&name)?;
+    engine.rename_profile(&id, name).await.map_err(|err| format!("Could not rename: {err}"))?;
+    Ok(format!("Renamed to '{name}'"))
+}
+
+#[tauri::command]
+pub async fn delete_profile(engine: State<'_, Engine>, id: String) -> Answer {
+    let name = engine.delete_profile(&id).await.map_err(|err| format!("Could not delete: {err}"))?;
+    Ok(format!("Deleted '{name}'"))
+}
+
+#[tauri::command]
+pub async fn save_current(engine: State<'_, Engine>, name: String) -> Answer {
+    let name = valid_name(&name)?;
     let profile = engine.save_current_as(name).await.map_err(|err| format!("Could not save: {err}"))?;
     Ok(format!("Saved {} settings as '{}'", profile.settings.len(), profile.name))
 }

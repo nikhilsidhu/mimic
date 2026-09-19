@@ -215,6 +215,43 @@ impl Engine {
         Ok(applied)
     }
 
+    pub async fn rename_profile(&self, id: &str, name: &str) -> Result<()> {
+        let _guard = self.inner.action_lock.lock().await;
+        let mut profile =
+            self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        profile.name = name.to_owned();
+        self.inner.store.save_profile(&profile)?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
+    /// Deletes a profile and forgets it wherever it was referenced. Accounts that were
+    /// on it keep their settings; they just no longer have a profile. Returns its name.
+    pub async fn delete_profile(&self, id: &str) -> Result<String> {
+        let _guard = self.inner.action_lock.lock().await;
+        let profile = self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        self.inner.store.delete_profile(id)?;
+
+        let mut accounts = self.inner.store.load_accounts()?;
+        for account in accounts.accounts.values_mut().filter(|account| account.profile_id.as_deref() == Some(id)) {
+            account.profile_id = None;
+            account.auto_apply = false;
+        }
+        self.inner.store.save_accounts(&accounts)?;
+
+        let mut state = self.inner.store.load_state()?;
+        for reference in [&mut state.active_profile, &mut state.pending_apply] {
+            if reference.as_deref() == Some(id) {
+                *reference = None;
+            }
+        }
+        self.inner.store.save_state(&state)?;
+
+        tracing::info!(id, name = %profile.name, "deleted profile");
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(profile.name)
+    }
+
     pub fn profiles(&self) -> Result<Vec<Profile>> {
         Ok(self.inner.store.list_profiles()?)
     }

@@ -31,6 +31,8 @@ pub fn run() {
             commands::view,
             commands::apply_profile,
             commands::set_auto_apply,
+            commands::rename_profile,
+            commands::delete_profile,
             commands::save_current,
             commands::undo_last,
             commands::copy_riot_id,

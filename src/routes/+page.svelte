@@ -1,15 +1,22 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import Check from "@lucide/svelte/icons/check";
+  import Pencil from "@lucide/svelte/icons/pencil";
+  import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
 
   let view = $state<api.View | null>(null);
+  /** The profile an action is running on. One action at a time. */
   let busy = $state<string | null>(null);
   let message = $state<{ text: string; failed: boolean } | null>(null);
+  /** The row being renamed or asking to confirm a delete, if any. */
+  let editing = $state<{ id: string; mode: "rename" | "delete"; name: string } | null>(null);
+  let renameInput = $state<HTMLInputElement | null>(null);
 
   const refresh = async () => (view = await api.getView());
 
@@ -18,17 +25,29 @@
     return api.onViewChanged(refresh);
   });
 
-  async function apply(id: string) {
+  async function run(id: string, action: () => Promise<string>) {
     if (busy) return;
     busy = id;
     try {
-      message = { text: await api.applyProfile(id), failed: false };
+      message = { text: await action(), failed: false };
+      editing = null;
     } catch (err) {
       message = { text: String(err), failed: true };
     } finally {
       busy = null;
       refresh();
     }
+  }
+
+  async function startRename(profile: api.ProfileView) {
+    editing = { id: profile.id, mode: "rename", name: profile.name };
+    await tick();
+    renameInput?.select();
+  }
+
+  function submitRename(event: SubmitEvent) {
+    event.preventDefault();
+    if (editing) run(editing.id, () => api.renameProfile(editing!.id, editing!.name));
   }
 </script>
 
@@ -49,22 +68,65 @@
 
       <section class="overflow-hidden rounded-lg border border-border">
         {#each view?.profiles ?? [] as profile, index (profile.id)}
-          <div class="flex items-center gap-3 px-4 py-3" class:border-t={index > 0}>
+          <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
             <span class="flex size-4 shrink-0 items-center justify-center">
               {#if profile.active}<Check class="size-4" />{/if}
             </span>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-medium">{profile.name}</p>
-              <p class="text-xs text-muted-foreground">{profile.settings} settings</p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={busy !== null}
-              onclick={() => apply(profile.id)}
-            >
-              {busy === profile.id ? "Applying…" : "Apply"}
-            </Button>
+
+            {#if editing?.id === profile.id && editing.mode === "rename"}
+              <form class="flex min-w-0 flex-1 items-center gap-2" onsubmit={submitRename}>
+                <Input
+                  bind:ref={renameInput}
+                  bind:value={editing.name}
+                  maxlength={40}
+                  onkeydown={(event) => event.key === "Escape" && (editing = null)}
+                />
+                <Button type="submit" size="sm" disabled={busy !== null || !editing.name.trim()}>Rename</Button>
+                <Button type="button" variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
+              </form>
+            {:else if editing?.id === profile.id && editing.mode === "delete"}
+              <p class="min-w-0 flex-1 truncate text-sm">
+                Delete <span class="font-medium">{profile.name}</span>? Accounts on it keep their settings.
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={busy !== null}
+                onclick={() => run(profile.id, () => api.deleteProfile(profile.id))}
+              >
+                Delete
+              </Button>
+              <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
+            {:else}
+              <div class="min-w-0 flex-1">
+                <p class="truncate text-sm font-medium">{profile.name}</p>
+                <p class="text-xs text-muted-foreground">
+                  {view?.pending === profile.name ? "Will be applied at the next login" : `${profile.settings} settings`}
+                </p>
+              </div>
+              <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+                <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
+                  <Pencil />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onclick={() => (editing = { id: profile.id, mode: "delete", name: profile.name })}
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <Trash2 />
+                </Button>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy !== null}
+                onclick={() => run(profile.id, () => api.applyProfile(profile.id))}
+              >
+                {busy === profile.id ? "Applying…" : "Apply"}
+              </Button>
+            {/if}
           </div>
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
