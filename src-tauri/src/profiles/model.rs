@@ -81,6 +81,9 @@ pub struct State {
     pub active_profile: Option<String>,
     /// The settings we last wrote, which is the baseline for detecting changes.
     pub applied: Option<SettingsMap>,
+    /// A profile chosen while no account was logged in; applied at the next login.
+    #[serde(default)]
+    pub pending_apply: Option<String>,
 }
 
 /// The settings as they were right before mimic changed them.

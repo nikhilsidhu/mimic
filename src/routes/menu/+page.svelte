@@ -39,7 +39,7 @@
     <p class="label">Apply profile</p>
     <div class="profiles">
       {#each view.profiles as profile (profile.id)}
-        <button disabled={!view.connected} onclick={() => choose(() => api.applyProfile(profile.id))}>
+        <button onclick={() => choose(() => api.applyProfile(profile.id))}>
           <span class="mark">{#if profile.active}<Check class="size-3.5" />{/if}</span>
           <span class="name">{profile.name}</span>
         </button>

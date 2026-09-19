@@ -100,6 +100,16 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
         flyout_window(app, flyout)?;
     }
 
+    // What the engine does unasked, such as applying a profile at login, is announced.
+    if let Some(mut notices) = engine.take_notices() {
+        let app = app.clone();
+        tauri::async_runtime::spawn(async move {
+            while let Some(message) = notices.recv().await {
+                show_notice(&app, message);
+            }
+        });
+    }
+
     // Keeps the tooltip current and tells open windows to refresh.
     let app = app.clone();
     tauri::async_runtime::spawn(async move {

@@ -11,6 +11,7 @@
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Separator } from "$lib/components/ui/separator";
+  import { Switch } from "$lib/components/ui/switch";
   import * as api from "$lib/api";
 
   const MESSAGE_MS = 5000;
@@ -24,6 +25,17 @@
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
   const refresh = async () => (view = await api.getView());
+  /** The profile this account is on, which is what auto-apply would apply. */
+  const activeProfile = $derived(view?.connected ? view.profiles.find((profile) => profile.active) : undefined);
+
+  async function setAutoApply(enabled: boolean) {
+    try {
+      await api.setAutoApply(enabled);
+    } catch (err) {
+      say(String(err), true);
+    }
+    refresh();
+  }
 
   onMount(() => {
     refresh();
@@ -84,6 +96,15 @@
     {/if}
   </header>
 
+  {#if activeProfile}
+    <label class="flex items-center gap-2 px-3 pb-2.5 text-muted-foreground">
+      <span class="min-w-0 flex-1 leading-snug">
+        Apply <span class="text-foreground">{activeProfile.name}</span> whenever this account logs in
+      </span>
+      <Switch checked={view?.autoApply ?? false} onCheckedChange={setAutoApply} />
+    </label>
+  {/if}
+
   <Separator />
 
   <p class="px-3 pt-2.5 pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">Profiles</p>
@@ -92,9 +113,9 @@
       {#each view?.profiles ?? [] as profile (profile.id)}
         <button
           class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50"
-          disabled={!view?.connected || busy !== null}
+          disabled={busy !== null}
           onclick={() => run(profile.id, () => api.applyProfile(profile.id))}
-          title={view?.connected ? `Apply ${profile.name}` : "Log into League to apply a profile"}
+          title={view?.connected ? `Apply ${profile.name}` : `Apply ${profile.name} at the next login`}
         >
           <span class="flex size-4 shrink-0 items-center justify-center">
             {#if busy === profile.id}
@@ -104,7 +125,9 @@
             {/if}
           </span>
           <span class="min-w-0 flex-1 truncate text-sm">{profile.name}</span>
-          <span class="shrink-0 text-muted-foreground">{profile.settings} settings</span>
+          <span class="shrink-0 text-muted-foreground">
+            {view?.pending === profile.name ? "at next login" : `${profile.settings} settings`}
+          </span>
         </button>
       {:else}
         <p class="px-2 py-6 text-center text-muted-foreground">

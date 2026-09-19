@@ -3,8 +3,8 @@
 use std::time::Duration;
 
 use super::{Connection, Engine, Status};
-use crate::lcu::LcuError;
-use crate::profiles::{Profile, ProfileError, Snapshot};
+use crate::lcu::{LcuError, Summoner};
+use crate::profiles::{Account, Profile, ProfileError, Snapshot};
 use crate::settings::{overlay_between, PersistedSettings, SettingsMap};
 
 /// Snapshots kept before the oldest are deleted.
@@ -39,6 +39,23 @@ pub struct Applied {
     pub stuck: Vec<String>,
 }
 
+/// What asking for a profile led to.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Outcome {
+    Applied(Applied),
+    /// Nobody was logged in; the named profile waits for the next login.
+    Queued(String),
+}
+
+impl Outcome {
+    pub fn describe(&self) -> String {
+        match self {
+            Outcome::Applied(applied) => applied.describe("Applied"),
+            Outcome::Queued(name) => format!("'{name}' will be applied the next time you log into League"),
+        }
+    }
+}
+
 impl Applied {
     /// A sentence for the notice popup. `verb` is "Applied" or "Restored".
     pub fn describe(&self, verb: &str) -> String {
@@ -68,13 +85,108 @@ impl Engine {
     }
 
     /// Applies a profile to the logged-in account, after snapshotting what is there.
-    pub async fn apply_profile(&self, id: &str) -> Result<Applied> {
+    /// With nobody logged in it is queued for the next login instead: settings only
+    /// stick when written through a client that has the account open.
+    pub async fn apply_profile(&self, id: &str) -> Result<Outcome> {
         let _guard = self.inner.action_lock.lock().await;
         let profile = self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        if self.connection().is_err() {
+            let mut state = self.inner.store.load_state()?;
+            state.pending_apply = Some(profile.id.clone());
+            self.inner.store.save_state(&state)?;
+            self.inner.changed.send_modify(|revision| *revision += 1);
+            tracing::info!(id, name = %profile.name, "queued profile for the next login");
+            return Ok(Outcome::Queued(profile.name));
+        }
+        Ok(Outcome::Applied(self.apply_now(&profile).await?))
+    }
+
+    async fn apply_now(&self, profile: &Profile) -> Result<Applied> {
         let reason = format!("before applying '{}'", profile.name);
         let applied = self.write(&profile.settings, &reason, Some(&profile.id)).await?;
-        tracing::info!(id, name = %profile.name, changed = applied.changed, "applied profile");
+        tracing::info!(id = %profile.id, name = %profile.name, changed = applied.changed, "applied profile");
         Ok(applied)
+    }
+
+    /// Runs when an account becomes ready: records it, then applies a queued profile or,
+    /// if the account asked for it, its own profile.
+    pub(super) async fn on_login(self, account: Summoner, phase: String) {
+        let riot_id = format!("{}#{}", account.game_name, account.tag_line);
+        let result: Result<Option<String>> = async {
+            let _guard = self.inner.action_lock.lock().await;
+            let mut accounts = self.inner.store.load_accounts()?;
+            let entry = accounts.accounts.entry(account.puuid.clone()).or_insert_with(|| Account {
+                display_name: riot_id.clone(),
+                profile_id: None,
+                auto_apply: false,
+            });
+            entry.display_name = riot_id.clone();
+            let (mapped, auto_apply) = (entry.profile_id.clone(), entry.auto_apply);
+            self.inner.store.save_accounts(&accounts)?;
+
+            let mut state = self.inner.store.load_state()?;
+            let queued = state.pending_apply.take();
+            let id = match at_login(queued.as_deref(), mapped.as_deref(), auto_apply, &phase) {
+                AtLogin::Apply(id) => id.to_owned(),
+                AtLogin::Nothing => return Ok(None),
+                AtLogin::GameUnderWay => {
+                    tracing::info!(%phase, "not applying at login: a game is under way");
+                    return Ok(None);
+                }
+            };
+            // Only now is the queue used up.
+            if queued.is_some() {
+                self.inner.store.save_state(&state)?;
+            }
+            let Some(profile) = self.inner.store.load_profile(&id)? else { return Ok(None) };
+            let applied = self.apply_now(&profile).await?;
+            // Nothing to say when the account was already up to date.
+            Ok((applied != Applied::default()).then(|| {
+                let refused = match applied.stuck.len() {
+                    0 => String::new(),
+                    count => format!(", League refused {count}"),
+                };
+                format!("Applied '{}' to {riot_id}: {} settings changed{refused}", profile.name, applied.changed)
+            }))
+        }
+        .await;
+
+        match result {
+            Ok(Some(message)) => drop(self.inner.notices.send(message)),
+            Ok(None) => {}
+            Err(err) => {
+                tracing::warn!("could not apply at login: {err}");
+                let _ = self.inner.notices.send(format!("{riot_id}: could not apply your profile: {err}"));
+            }
+        }
+        self.inner.changed.send_modify(|revision| *revision += 1);
+    }
+
+    /// Whether the logged-in account applies its profile by itself at login.
+    pub fn auto_apply(&self) -> bool {
+        self.account().is_some_and(|account| account.auto_apply)
+    }
+
+    pub fn set_auto_apply(&self, enabled: bool) -> Result<()> {
+        let puuid = self.connection()?.puuid;
+        let mut accounts = self.inner.store.load_accounts()?;
+        if let Some(account) = accounts.accounts.get_mut(&puuid) {
+            account.auto_apply = enabled;
+            self.inner.store.save_accounts(&accounts)?;
+            self.inner.changed.send_modify(|revision| *revision += 1);
+        }
+        Ok(())
+    }
+
+    /// The name of the profile waiting for the next login, if any.
+    pub fn pending_profile(&self) -> Option<String> {
+        let id = self.inner.store.load_state().ok()?.pending_apply?;
+        Some(self.inner.store.load_profile(&id).ok()??.name)
+    }
+
+    fn account(&self) -> Option<Account> {
+        let puuid = self.connection().ok()?.puuid;
+        self.inner.store.load_accounts().ok()?.accounts.remove(&puuid)
     }
 
     /// Puts back the settings from before the most recent apply. Undoing twice redoes,
@@ -99,8 +211,9 @@ impl Engine {
         Ok(self.inner.store.list_profiles()?)
     }
 
+    /// The profile the logged-in account is on: the one last applied to or saved from it.
     pub fn active_profile(&self) -> Option<String> {
-        self.inner.store.load_state().ok()?.active_profile
+        self.account()?.profile_id
     }
 
     /// Snapshots the current settings, then writes whatever differs from `target`.
@@ -143,14 +256,29 @@ impl Engine {
             tracing::warn!(?stuck, "the client did not accept some settings");
         }
         self.remember(profile_id, after)?;
-        Ok(Applied { changed: changes.len() - stuck.len(), stuck })
+        // Saturating: resolving a key conflict can make the client unbind a key that was
+        // not part of `changes`, so more can be stuck than was asked for.
+        Ok(Applied { changed: changes.len().saturating_sub(stuck.len()), stuck })
     }
 
+    /// Records what is now on the account. A profile id also becomes the account's
+    /// profile; an undo (`None`) leaves that alone.
     fn remember(&self, profile_id: Option<&str>, applied: SettingsMap) -> Result<()> {
         let mut state = self.inner.store.load_state()?;
         state.active_profile = profile_id.map(str::to_owned);
         state.applied = Some(applied);
         self.inner.store.save_state(&state)?;
+
+        if let (Some(profile_id), Ok(connection)) = (profile_id, self.connection()) {
+            let mut accounts = self.inner.store.load_accounts()?;
+            let account = accounts.accounts.entry(connection.puuid).or_insert_with(|| Account {
+                display_name: self.status.borrow().riot_id().unwrap_or_default(),
+                profile_id: None,
+                auto_apply: false,
+            });
+            account.profile_id = Some(profile_id.to_owned());
+            self.inner.store.save_accounts(&accounts)?;
+        }
         self.inner.changed.send_modify(|revision| *revision += 1);
         Ok(())
     }
@@ -165,6 +293,26 @@ impl Engine {
     }
 }
 
+#[derive(Debug, PartialEq)]
+enum AtLogin<'a> {
+    Apply(&'a str),
+    Nothing,
+    /// There is something to apply, but it has to wait for a later login.
+    GameUnderWay,
+}
+
+/// What to do when an account becomes ready. A profile the user queued wins over the
+/// account's own profile, which only counts if the account opted into auto-apply. A
+/// game that is starting or running already has its settings, so nothing is applied
+/// then and a queued profile stays queued.
+fn at_login<'a>(queued: Option<&'a str>, mapped: Option<&'a str>, auto_apply: bool, phase: &str) -> AtLogin<'a> {
+    let Some(id) = queued.or(mapped.filter(|_| auto_apply)) else { return AtLogin::Nothing };
+    if matches!(phase, "ChampSelect" | "GameStart" | "InProgress" | "Reconnect") {
+        return AtLogin::GameUnderWay;
+    }
+    AtLogin::Apply(id)
+}
+
 fn read_settings(connection: &Connection) -> Result<SettingsMap> {
     let path = connection.install.persisted_settings();
     let text = std::fs::read_to_string(&path).map_err(|err| ActionError::ReadSettings(format!("{}: {err}", path.display())))?;
@@ -176,6 +324,32 @@ fn read_settings(connection: &Connection) -> Result<SettingsMap> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn login_applies_a_queued_profile_or_an_opted_in_one() {
+        assert_eq!(at_login(None, None, true, "None"), AtLogin::Nothing);
+        // Having a profile is not consent to auto-apply.
+        assert_eq!(at_login(None, Some("main"), false, "Lobby"), AtLogin::Nothing);
+        assert_eq!(at_login(None, Some("main"), true, "Lobby"), AtLogin::Apply("main"));
+        // What the user explicitly queued wins, with or without auto-apply.
+        assert_eq!(at_login(Some("alt"), Some("main"), true, "None"), AtLogin::Apply("alt"));
+        assert_eq!(at_login(Some("alt"), None, false, "None"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn login_waits_when_a_game_is_under_way() {
+        for phase in ["ChampSelect", "GameStart", "InProgress", "Reconnect"] {
+            assert_eq!(at_login(Some("alt"), None, false, phase), AtLogin::GameUnderWay, "{phase}");
+        }
+        assert_eq!(at_login(None, None, false, "InProgress"), AtLogin::Nothing);
+        assert_eq!(at_login(Some("alt"), None, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn describes_a_queued_apply() {
+        let outcome = Outcome::Queued("Main".into());
+        assert_eq!(outcome.describe(), "'Main' will be applied the next time you log into League");
+    }
 
     #[test]
     fn describes_the_outcome_of_an_apply() {

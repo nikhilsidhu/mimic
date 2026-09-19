@@ -30,6 +30,7 @@ pub fn run() {
             tray::current_notice,
             commands::view,
             commands::apply_profile,
+            commands::set_auto_apply,
             commands::save_current,
             commands::undo_last,
             commands::copy_riot_id,

@@ -7,10 +7,10 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures_util::StreamExt;
-use tokio::sync::watch;
+use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
-pub use actions::ActionError;
+pub use actions::{ActionError, Applied, Outcome};
 
 use crate::lcu::{self, LcuClient, Lockfile, Summoner};
 use crate::platform::LeagueInstall;
@@ -75,6 +75,9 @@ struct Inner {
     action_lock: tokio::sync::Mutex<()>,
     /// Bumped whenever profiles or the active profile change, so the tray can redraw.
     changed: watch::Sender<u64>,
+    /// Things the engine did on its own that the user should hear about.
+    notices: mpsc::UnboundedSender<String>,
+    notices_out: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
 }
 
 #[derive(Clone)]
@@ -88,23 +91,34 @@ impl Engine {
     /// Starts the engine on the current Tokio runtime.
     pub fn spawn(store: Store) -> Engine {
         let (status, receiver) = watch::channel(Status::default());
+        let (notices, notices_out) = mpsc::unbounded_channel();
         let inner = Arc::new(Inner {
             store,
             connection: Mutex::new(None),
             action_lock: tokio::sync::Mutex::new(()),
             changed: watch::channel(0).0,
+            notices,
+            notices_out: Mutex::new(Some(notices_out)),
         });
-        tokio::spawn(run(status, inner.clone()));
-        Engine { status: receiver, inner }
+        let engine = Engine { status: receiver, inner };
+        tokio::spawn(run(status, engine.clone()));
+        engine
     }
 
     /// Fires whenever profiles or the active profile change.
     pub fn changes(&self) -> watch::Receiver<u64> {
         self.inner.changed.subscribe()
     }
+
+    /// Messages about what the engine did unasked, e.g. an auto-apply. There is one
+    /// receiver; the first caller gets it.
+    pub fn take_notices(&self) -> Option<mpsc::UnboundedReceiver<String>> {
+        self.inner.notices_out.lock().unwrap().take()
+    }
 }
 
-async fn run(status: watch::Sender<Status>, inner: Arc<Inner>) {
+async fn run(status: watch::Sender<Status>, engine: Engine) {
+    let inner = &engine.inner;
     let install = loop {
         match LeagueInstall::detect() {
             Some(install) => break install,
@@ -122,7 +136,7 @@ async fn run(status: watch::Sender<Status>, inner: Arc<Inner>) {
         tracing::info!(pid = lockfile.pid, port = lockfile.port, "League client is up");
         status.send_replace(Status::LoggingIn);
 
-        let result = follow(&lockfile, &client, &install, &status, &inner).await;
+        let result = follow(&lockfile, &client, &install, &status, &engine).await;
         *inner.connection.lock().unwrap() = None;
         match result {
             Ok(()) => tracing::info!("League client went away"),
@@ -152,8 +166,9 @@ async fn follow(
     client: &LcuClient,
     install: &LeagueInstall,
     status: &watch::Sender<Status>,
-    inner: &Inner,
+    engine: &Engine,
 ) -> lcu::Result<()> {
+    let inner = &engine.inner;
     // Subscribed before any state is read so that no change falls in between.
     let mut events = std::pin::pin!(lcu::subscribe(lockfile).await?);
 
@@ -185,6 +200,8 @@ async fn follow(
     };
     connect(&account.puuid);
     status.send_replace(Status::Connected { account: account.clone(), phase: phase.clone() });
+    // In the background: applying takes a second or two and phases must keep flowing.
+    tokio::spawn(engine.clone().on_login(account.clone(), phase.clone()));
 
     while let Some(event) = events.next().await {
         let event = event?;
@@ -197,7 +214,10 @@ async fn follow(
             }
             "/lol-summoner/v1/current-summoner" => {
                 if let Ok(new) = serde_json::from_value::<Summoner>(event.data) {
-                    connect(&new.puuid);
+                    if new.puuid != account.puuid {
+                        connect(&new.puuid);
+                        tokio::spawn(engine.clone().on_login(new.clone(), phase.clone()));
+                    }
                     account = new;
                 }
             }

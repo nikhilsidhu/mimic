@@ -60,7 +60,7 @@
             <Button
               variant="outline"
               size="sm"
-              disabled={!view?.connected || busy !== null}
+              disabled={busy !== null}
               onclick={() => apply(profile.id)}
             >
               {busy === profile.id ? "Applying…" : "Apply"}

@@ -14,6 +14,10 @@ export type View = {
   status: string;
   connected: boolean;
   phase: string | null;
+  /** Whether this account applies its profile by itself at login. */
+  autoApply: boolean;
+  /** The profile waiting for the next login, by name. */
+  pending: string | null;
   profiles: ProfileView[];
 };
 
@@ -27,7 +31,8 @@ export function onViewChanged(onChange: () => void): () => void {
 
 // Every action resolves to a sentence to show, and rejects with one on failure.
 export const applyProfile = (id: string) => invoke<string>("apply_profile", { id });
-export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
+export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
+export const saveCurrent =(name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const copyRiotId = () => invoke<string>("copy_riot_id");
 export const openManager = () => invoke<void>("open_manager");

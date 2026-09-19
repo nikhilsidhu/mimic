@@ -19,6 +19,10 @@ pub struct View {
     status: String,
     connected: bool,
     phase: Option<String>,
+    /// Whether this account applies its profile by itself at login.
+    auto_apply: bool,
+    /// The profile waiting for the next login, by name.
+    pending: Option<String>,
     profiles: Vec<ProfileView>,
 }
 
@@ -45,6 +49,8 @@ pub fn view(engine: State<Engine>) -> View {
         status: status.label(),
         connected: status.riot_id().is_some(),
         phase: status.phase().map(str::to_owned),
+        auto_apply: engine.auto_apply(),
+        pending: engine.pending_profile(),
         profiles: profiles
             .into_iter()
             .map(|profile| ProfileView {
@@ -59,8 +65,13 @@ pub fn view(engine: State<Engine>) -> View {
 
 #[tauri::command]
 pub async fn apply_profile(engine: State<'_, Engine>, id: String) -> Answer {
-    let applied = engine.apply_profile(&id).await.map_err(|err| format!("Could not apply: {err}"))?;
-    Ok(applied.describe("Applied"))
+    let outcome = engine.apply_profile(&id).await.map_err(|err| format!("Could not apply: {err}"))?;
+    Ok(outcome.describe())
+}
+
+#[tauri::command]
+pub fn set_auto_apply(engine: State<Engine>, enabled: bool) -> Result<(), String> {
+    engine.set_auto_apply(enabled).map_err(|err| err.to_string())
 }
 
 #[tauri::command]
