@@ -121,6 +121,14 @@ impl Engine {
                 auto_apply: false,
             });
             entry.display_name = riot_id.clone();
+            // An account that is already on one of the profiles is recognised as such,
+            // so that nobody has to apply a profile just to tell us what is there.
+            if entry.profile_id.is_none() {
+                let current = read_settings(&self.connection()?)?;
+                let last_used = self.inner.store.load_state()?.active_profile;
+                entry.profile_id =
+                    matching_profile(&current, &self.inner.store.list_profiles()?, last_used.as_deref());
+            }
             let (mapped, auto_apply) = (entry.profile_id.clone(), entry.auto_apply);
             self.inner.store.save_accounts(&accounts)?;
 
@@ -313,6 +321,17 @@ fn at_login<'a>(queued: Option<&'a str>, mapped: Option<&'a str>, auto_apply: bo
     AtLogin::Apply(id)
 }
 
+/// The profile `current` already matches, if any: applying it would change nothing but
+/// window layout. Duplicates happen, so with several matches the one used last wins,
+/// then the most recently updated.
+fn matching_profile(current: &SettingsMap, profiles: &[Profile], last_used: Option<&str>) -> Option<String> {
+    profiles
+        .iter()
+        .filter(|profile| !profile.settings.is_empty() && overlay_between(current, &profile.settings).is_only_volatile())
+        .max_by_key(|profile| (Some(profile.id.as_str()) == last_used, profile.updated))
+        .map(|profile| profile.id.clone())
+}
+
 fn read_settings(connection: &Connection) -> Result<SettingsMap> {
     let path = connection.install.persisted_settings();
     let text = std::fs::read_to_string(&path).map_err(|err| ActionError::ReadSettings(format!("{}: {err}", path.display())))?;
@@ -343,6 +362,37 @@ mod tests {
         }
         assert_eq!(at_login(None, None, false, "InProgress"), AtLogin::Nothing);
         assert_eq!(at_login(Some("alt"), None, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn recognises_the_profile_an_account_is_already_on() {
+        let mut current = SettingsMap::default();
+        current.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        current.set("Game.cfg", "HUD", "DeathRecapNativeOffsetX", "0.0852");
+        current.set("Game.cfg", "HUD", "OnlyOnThisAccount", "1");
+
+        // Same binds; the layout differs and the account has an extra key. Still a match.
+        let mut same = SettingsMap::default();
+        same.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        same.set("Game.cfg", "HUD", "DeathRecapNativeOffsetX", "0.1355");
+        let mut other = SettingsMap::default();
+        other.set("Input.ini", "GameEvents", "evtCastSpell1", "[a]");
+
+        let profiles = [
+            Profile { id: "other".into(), ..Profile::new("Other", other) },
+            Profile { id: "same".into(), ..Profile::new("Same", same) },
+            Profile { id: "empty".into(), ..Profile::new("Empty", SettingsMap::default()) },
+        ];
+        assert_eq!(matching_profile(&current, &profiles, None), Some("same".into()));
+        assert_eq!(matching_profile(&current, &profiles[..1], None), None);
+
+        // Between identical profiles the one used last wins over the newer one.
+        let newer = Profile { id: "copy".into(), ..Profile::new("Copy", profiles[1].settings.clone()) };
+        let with_copy = [profiles[1].clone(), newer];
+        assert_eq!(matching_profile(&current, &with_copy, None), Some("copy".into()));
+        assert_eq!(matching_profile(&current, &with_copy, Some("same")), Some("same".into()));
+        // Having been used last does not make a profile match.
+        assert_eq!(matching_profile(&current, &profiles, Some("other")), Some("same".into()));
     }
 
     #[test]
