@@ -12,16 +12,25 @@ fn is_local(file: &str, section: &str, key: &str) -> bool {
     LOCAL_KEYS.contains(&(file, section, key))
 }
 
-/// Whether a key is window layout the game rewrites on its own: where the chat, shop
-/// and death recap sit and how big the shop is. These belong in a profile, so that a
-/// new account gets the same layout, but a difference in them alone is not a change
-/// the user made and must not trigger an apply or a prompt.
+/// Whether a key changes without the user changing it, so that a difference in it
+/// alone is not something to apply, report or ask about. Such keys still belong in a
+/// profile and go along whenever something real is written.
+///
+/// - Window layout the game rewrites on its own: where the chat, shop and death recap
+///   sit and how big the shop is.
+/// - The push-to-talk key, which the client's voice settings own: the client sets it
+///   back by itself, at login and after games, whatever is written to it.
 pub fn is_volatile(file: &str, _section: &str, key: &str) -> bool {
-    file == "Game.cfg"
-        && (key.contains("NativeOffset")
-            || key.starts_with("ItemShopPrev")
-            || key.starts_with("ItemShopResize")
-            || matches!(key, "ChatX" | "ChatY"))
+    match file {
+        "Game.cfg" => {
+            key.contains("NativeOffset")
+                || key.starts_with("ItemShopPrev")
+                || key.starts_with("ItemShopResize")
+                || matches!(key, "ChatX" | "ChatY")
+        }
+        "Input.ini" => key == "evtPushToTalk",
+        _ => false,
+    }
 }
 
 type Section = BTreeMap<String, String>;
@@ -240,6 +249,7 @@ mod tests {
         }
         assert!(is_volatile("Game.cfg", "Chat", "ChatX"));
         assert!(is_volatile("Game.cfg", "ItemShop", "NativeOffsetY"));
+        assert!(is_volatile("Input.ini", "GameEvents", "evtPushToTalk"));
         assert!(!is_volatile("Game.cfg", "HUD", "MinimapScale"));
         assert!(!is_volatile("Input.ini", "GameEvents", "evtCastSpell1"));
 

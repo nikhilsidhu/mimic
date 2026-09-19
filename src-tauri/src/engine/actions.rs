@@ -44,6 +44,8 @@ pub struct Applied {
 /// How long after a game the settings are left alone before being compared. The game
 /// writes them on exit and the client then reloads them.
 const AFTER_GAME_SETTLE: Duration = Duration::from_secs(6);
+/// How long after an account becomes ready its settings are left alone before being read.
+const LOGIN_SETTLE: Duration = Duration::from_secs(5);
 
 /// Something the engine wants the user to see without having been asked.
 #[derive(Debug, Clone, PartialEq)]
@@ -144,6 +146,10 @@ impl Engine {
     /// if the account asked for it, its own profile.
     pub(super) async fn on_login(self, account: Summoner, phase: String) {
         let riot_id = format!("{}#{}", account.game_name, account.tag_line);
+        // The client keeps adjusting the settings for a moment after it reports ready
+        // (it was seen flipping the push-to-talk key and back), and reading in between
+        // looks like the user changed something.
+        tokio::time::sleep(LOGIN_SETTLE).await;
         let result: Result<Option<String>> = async {
             let _guard = self.inner.action_lock.lock().await;
             let current = read_settings(&self.connection()?)?;
@@ -205,6 +211,8 @@ impl Engine {
         match result {
             Ok(Some(message)) => drop(self.inner.notices.send(Announcement::Notice(message))),
             Ok(None) => {}
+            // Logged out again before the settings had settled: nothing to report.
+            Err(ActionError::NotConnected) => tracing::debug!("the account went away during login"),
             Err(err) => {
                 tracing::warn!("could not apply at login: {err}");
                 let message = format!("{riot_id}: could not apply your profile: {err}");
