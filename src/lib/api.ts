@@ -21,7 +21,32 @@ export type View = {
   profiles: ProfileView[];
 };
 
+/** One setting that differs. `from` or `to` is null when the key exists on one side only. */
+export type Change = {
+  file: string;
+  section: string;
+  key: string;
+  from: string | null;
+  to: string | null;
+};
+
+/** Settings the user changed, and the name of the profile they could be saved to. */
+export type Drift = {
+  profile: string | null;
+  changes: Change[];
+};
+
+export type DriftChoice = "saveToProfile" | "revert" | "keepHere";
+
 export const getView = () => invoke<View>("view");
+export const getDrift = () => invoke<Drift | null>("drift");
+export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
+
+/** Calls `onChange` when the changed-settings prompt should read the drift again. */
+export function onDriftChanged(onChange: () => void): () => void {
+  const unlisten = listen("drift-changed", onChange);
+  return () => void unlisten.then((stop) => stop());
+}
 
 /** Calls `onChange` whenever the view may have changed. Returns a function that stops listening. */
 export function onViewChanged(onChange: () => void): () => void {

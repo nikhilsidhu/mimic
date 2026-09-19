@@ -35,6 +35,8 @@ pub fn run() {
             commands::delete_profile,
             commands::save_current,
             commands::undo_last,
+            commands::drift,
+            commands::resolve_drift,
             commands::copy_riot_id,
             commands::open_manager,
             commands::open_logs,

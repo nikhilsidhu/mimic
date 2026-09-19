@@ -14,7 +14,7 @@ use tauri::{
     AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, WebviewUrl, WebviewWindow, WebviewWindowBuilder,
 };
 
-use crate::engine::Engine;
+use crate::engine::{Announcement, Engine};
 
 /// Gap between a window and the edges of the work area, in logical pixels.
 const MARGIN: f64 = 12.0;
@@ -24,6 +24,7 @@ const REOPEN_GUARD: Duration = Duration::from_millis(250);
 const BLUR_SETTLE: Duration = Duration::from_millis(100);
 
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
+const DRIFT_SIZE: (f64, f64) = (380.0, 260.0);
 
 // The menu is sized to its content. These mirror the CSS in `routes/menu`.
 const MENU_WIDTH: f64 = 220.0;
@@ -104,8 +105,11 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
     if let Some(mut notices) = engine.take_notices() {
         let app = app.clone();
         tauri::async_runtime::spawn(async move {
-            while let Some(message) = notices.recv().await {
-                show_notice(&app, message);
+            while let Some(announcement) = notices.recv().await {
+                match announcement {
+                    Announcement::Notice(message) => show_notice(&app, message),
+                    Announcement::Drift => show_drift_prompt(&app),
+                }
             }
         });
     }
@@ -243,6 +247,17 @@ pub fn show_notice(app: &AppHandle, message: String) {
     }
     if let Err(err) = show_popup(app, "notice", 360.0, 64.0) {
         tracing::error!("could not show a notice: {err}");
+    }
+}
+
+/// Asks what to do about settings the user changed. The page reads the details itself
+/// and is told to read them again if it was already open.
+pub fn show_drift_prompt(app: &AppHandle) {
+    if let Some(window) = app.get_webview_window("drift") {
+        let _ = window.emit("drift-changed", ());
+    }
+    if let Err(err) = show_popup(app, "drift", DRIFT_SIZE.0, DRIFT_SIZE.1) {
+        tracing::error!("could not show the changed-settings prompt: {err}");
     }
 }
 

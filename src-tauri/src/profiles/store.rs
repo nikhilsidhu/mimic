@@ -268,7 +268,12 @@ mod tests {
         assert!(store.list_overlays().unwrap().is_empty());
 
         let mut accounts = store.load_accounts().unwrap();
-        let account = Account { display_name: "Player#NA1".into(), profile_id: Some("main".into()), auto_apply: true };
+        let account = Account {
+            profile_id: Some("main".into()),
+            auto_apply: true,
+            baseline: Some(settings("[q]")),
+            ..Account::new("Player#NA1".into())
+        };
         accounts.accounts.insert("puuid-1".into(), account);
         store.save_accounts(&accounts).unwrap();
         assert_eq!(store.load_accounts().unwrap(), accounts);

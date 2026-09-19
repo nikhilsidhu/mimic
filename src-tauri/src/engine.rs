@@ -10,11 +10,14 @@ use futures_util::StreamExt;
 use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
-pub use actions::{ActionError, Applied, Outcome};
+pub use actions::{ActionError, Announcement, Applied, Drift, DriftChoice, Outcome};
 
 use crate::lcu::{self, LcuClient, Lockfile, Summoner};
 use crate::platform::LeagueInstall;
 use crate::profiles::Store;
+
+/// Phases that follow a game. `TerminatedInError` is how Practice Tool games end.
+const GAME_OVER: [&str; 5] = ["PreEndOfGame", "EndOfGame", "TerminatedInError", "Lobby", "None"];
 
 /// What the engine currently knows, for the tray and the UI.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -76,8 +79,8 @@ struct Inner {
     /// Bumped whenever profiles or the active profile change, so the tray can redraw.
     changed: watch::Sender<u64>,
     /// Things the engine did on its own that the user should hear about.
-    notices: mpsc::UnboundedSender<String>,
-    notices_out: Mutex<Option<mpsc::UnboundedReceiver<String>>>,
+    notices: mpsc::UnboundedSender<Announcement>,
+    notices_out: Mutex<Option<mpsc::UnboundedReceiver<Announcement>>>,
 }
 
 #[derive(Clone)]
@@ -110,9 +113,9 @@ impl Engine {
         self.inner.changed.subscribe()
     }
 
-    /// Messages about what the engine did unasked, e.g. an auto-apply. There is one
-    /// receiver; the first caller gets it.
-    pub fn take_notices(&self) -> Option<mpsc::UnboundedReceiver<String>> {
+    /// What the engine wants shown unasked: an auto-apply, or settings that changed.
+    /// There is one receiver; the first caller gets it.
+    pub fn take_notices(&self) -> Option<mpsc::UnboundedReceiver<Announcement>> {
         self.inner.notices_out.lock().unwrap().take()
     }
 }
@@ -203,6 +206,8 @@ async fn follow(
     // In the background: applying takes a second or two and phases must keep flowing.
     tokio::spawn(engine.clone().on_login(account.clone(), phase.clone()));
 
+    // Whether a game has been running since the last check for changed settings.
+    let mut played = phase == "InProgress";
     while let Some(event) = events.next().await {
         let event = event?;
         match event.uri.as_str() {
@@ -210,6 +215,14 @@ async fn follow(
                 if let Some(new) = event.data.as_str() {
                     tracing::debug!(from = %phase, to = %new, "phase changed");
                     phase = new.to_owned();
+                    // The game writes its settings as it exits. Once it is over, see
+                    // whether the user changed anything in there.
+                    if phase == "InProgress" {
+                        played = true;
+                    } else if played && GAME_OVER.contains(&phase.as_str()) {
+                        played = false;
+                        tokio::spawn(engine.clone().check_drift_after_game());
+                    }
                 }
             }
             "/lol-summoner/v1/current-summoner" => {

@@ -5,7 +5,7 @@ use tauri::{AppHandle, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::engine::Engine;
+use crate::engine::{Drift, DriftChoice, Engine};
 use crate::{platform, tray};
 
 /// Longest profile name the UI may create.
@@ -106,6 +106,20 @@ pub async fn save_current(engine: State<'_, Engine>, name: String) -> Answer {
 pub async fn undo_last(engine: State<'_, Engine>) -> Answer {
     let applied = engine.restore_last_snapshot().await.map_err(|err| format!("Could not undo: {err}"))?;
     Ok(applied.describe("Restored"))
+}
+
+/// The settings the user changed on this account, if any.
+#[tauri::command]
+pub fn drift(engine: State<Engine>) -> Option<Drift> {
+    engine.drift().unwrap_or_else(|err| {
+        tracing::warn!("could not check for changed settings: {err}");
+        None
+    })
+}
+
+#[tauri::command]
+pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> Answer {
+    engine.resolve_drift(choice).await.map_err(|err| format!("Could not do that: {err}"))
 }
 
 #[tauri::command]

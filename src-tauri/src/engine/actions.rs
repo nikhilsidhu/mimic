@@ -5,7 +5,7 @@ use std::time::Duration;
 use super::{Connection, Engine, Status};
 use crate::lcu::{LcuError, Summoner};
 use crate::profiles::{Account, Profile, ProfileError, Snapshot};
-use crate::settings::{overlay_between, PersistedSettings, SettingsMap};
+use crate::settings::{diff, is_volatile, overlay_between, Change, PersistedSettings, SettingsMap};
 
 /// Snapshots kept before the oldest are deleted.
 const KEEP_SNAPSHOTS: usize = 20;
@@ -18,6 +18,8 @@ pub enum ActionError {
     NoSuchProfile(String),
     #[error("there is no snapshot to restore")]
     NoSnapshot,
+    #[error("this account is not on a profile")]
+    NoProfile,
     #[error("could not read League's settings file: {0}")]
     ReadSettings(String),
     #[error(transparent)]
@@ -37,6 +39,36 @@ pub struct Applied {
     pub changed: usize,
     /// Settings the client refused to take, by key name.
     pub stuck: Vec<String>,
+}
+
+/// How long after a game the settings are left alone before being compared. The game
+/// writes them on exit and the client then reloads them.
+const AFTER_GAME_SETTLE: Duration = Duration::from_secs(6);
+
+/// Something the engine wants the user to see without having been asked.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Announcement {
+    Notice(String),
+    /// Settings changed; [`Engine::drift`] has the details.
+    Drift,
+}
+
+/// Settings the user changed, and the profile they could be saved to.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct Drift {
+    pub profile: Option<String>,
+    pub changes: Vec<Change>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum DriftChoice {
+    /// Make the changes part of the account's profile, so other accounts get them.
+    SaveToProfile,
+    /// Put the account back the way it was.
+    Revert,
+    /// Accept the changes on this account and leave the profile as it is.
+    KeepHere,
 }
 
 /// What asking for a profile led to.
@@ -114,29 +146,40 @@ impl Engine {
         let riot_id = format!("{}#{}", account.game_name, account.tag_line);
         let result: Result<Option<String>> = async {
             let _guard = self.inner.action_lock.lock().await;
+            let current = read_settings(&self.connection()?)?;
+            let profiles = self.inner.store.list_profiles()?;
             let mut accounts = self.inner.store.load_accounts()?;
-            let entry = accounts.accounts.entry(account.puuid.clone()).or_insert_with(|| Account {
-                display_name: riot_id.clone(),
-                profile_id: None,
-                auto_apply: false,
-            });
+            let entry =
+                accounts.accounts.entry(account.puuid.clone()).or_insert_with(|| Account::new(riot_id.clone()));
             entry.display_name = riot_id.clone();
             // An account that is already on one of the profiles is recognised as such,
             // so that nobody has to apply a profile just to tell us what is there.
             if entry.profile_id.is_none() {
-                let current = read_settings(&self.connection()?)?;
                 let last_used = self.inner.store.load_state()?.active_profile;
-                entry.profile_id =
-                    matching_profile(&current, &self.inner.store.list_profiles()?, last_used.as_deref());
+                entry.profile_id = matching_profile(&current, &profiles, last_used.as_deref());
             }
+            // Without a baseline, one can only be assumed if the account is exactly on
+            // its profile; otherwise there is no telling what the user changed.
+            if entry.baseline.is_none() {
+                let on_profile = entry.profile_id.as_ref().and_then(|id| profiles.iter().find(|p| p.id == *id));
+                if on_profile.is_some_and(|profile| overlay_between(&current, &profile.settings).is_only_volatile()) {
+                    entry.baseline = Some(current.clone());
+                }
+            }
+            let drifted = entry.baseline.as_ref().is_some_and(|baseline| !user_changes(baseline, &current).is_empty());
             let (mapped, auto_apply) = (entry.profile_id.clone(), entry.auto_apply);
             self.inner.store.save_accounts(&accounts)?;
 
             let mut state = self.inner.store.load_state()?;
             let queued = state.pending_apply.take();
-            let id = match at_login(queued.as_deref(), mapped.as_deref(), auto_apply, &phase) {
+            let id = match at_login(queued.as_deref(), mapped.as_deref(), auto_apply, drifted, &phase) {
                 AtLogin::Apply(id) => id.to_owned(),
                 AtLogin::Nothing => return Ok(None),
+                AtLogin::AskAboutChanges => {
+                    tracing::info!("settings changed while mimic was not looking; asking before anything is applied");
+                    let _ = self.inner.notices.send(Announcement::Drift);
+                    return Ok(None);
+                }
                 AtLogin::GameUnderWay => {
                     tracing::info!(%phase, "not applying at login: a game is under way");
                     return Ok(None);
@@ -160,14 +203,87 @@ impl Engine {
         .await;
 
         match result {
-            Ok(Some(message)) => drop(self.inner.notices.send(message)),
+            Ok(Some(message)) => drop(self.inner.notices.send(Announcement::Notice(message))),
             Ok(None) => {}
             Err(err) => {
                 tracing::warn!("could not apply at login: {err}");
-                let _ = self.inner.notices.send(format!("{riot_id}: could not apply your profile: {err}"));
+                let message = format!("{riot_id}: could not apply your profile: {err}");
+                let _ = self.inner.notices.send(Announcement::Notice(message));
             }
         }
         self.inner.changed.send_modify(|revision| *revision += 1);
+    }
+
+    /// What the user changed on the logged-in account since mimic last saved, applied
+    /// or accepted its settings. `None` when nothing did, or when there is no baseline.
+    pub fn drift(&self) -> Result<Option<Drift>> {
+        let connection = self.connection()?;
+        let Some(account) = self.account() else { return Ok(None) };
+        let Some(baseline) = &account.baseline else { return Ok(None) };
+        let changes = user_changes(baseline, &read_settings(&connection)?);
+        if changes.is_empty() {
+            return Ok(None);
+        }
+        let profile = match &account.profile_id {
+            Some(id) => self.inner.store.load_profile(id)?.map(|profile| profile.name),
+            None => None,
+        };
+        Ok(Some(Drift { profile, changes }))
+    }
+
+    /// Runs after a game: gives the game and the client a moment to finish writing the
+    /// settings, then asks the user about whatever changed.
+    pub(super) async fn check_drift_after_game(self) {
+        tokio::time::sleep(AFTER_GAME_SETTLE).await;
+        match self.drift() {
+            Ok(Some(drift)) => {
+                tracing::info!(changes = drift.changes.len(), "settings changed during the game");
+                let _ = self.inner.notices.send(Announcement::Drift);
+            }
+            Ok(None) => {}
+            Err(err) => tracing::warn!("could not check for changed settings: {err}"),
+        }
+    }
+
+    /// Settles what [`Engine::drift`] reported.
+    pub async fn resolve_drift(&self, choice: DriftChoice) -> Result<String> {
+        let _guard = self.inner.action_lock.lock().await;
+        let connection = self.connection()?;
+        let account = self.account().ok_or(ActionError::NotConnected)?;
+        let Some(baseline) = account.baseline else { return Ok("Nothing to do".to_owned()) };
+        let current = read_settings(&connection)?;
+        let changes = user_changes(&baseline, &current);
+
+        match choice {
+            DriftChoice::SaveToProfile => {
+                let id = account.profile_id.ok_or(ActionError::NoProfile)?;
+                let mut profile =
+                    self.inner.store.load_profile(&id)?.ok_or_else(|| ActionError::NoSuchProfile(id.clone()))?;
+                // Only what changed goes in, so that values the client refused on this
+                // account do not leak into the profile. A removed key is not a change.
+                for change in &changes {
+                    if let Some(value) = &change.to {
+                        profile.settings.set(&change.file, &change.section, &change.key, value);
+                    }
+                }
+                profile.updated = time::OffsetDateTime::now_utc();
+                self.inner.store.save_profile(&profile)?;
+                self.remember(Some(&profile.id), current)?;
+                tracing::info!(id = %profile.id, changes = changes.len(), "saved changed settings to the profile");
+                Ok(format!("Saved {} to '{}'", count(changes.len(), "change"), profile.name))
+            }
+            DriftChoice::Revert => {
+                // Riot's servers already hold the changed settings, so going back is a write.
+                let applied = self.write(&baseline, "before reverting changes", None).await?;
+                tracing::info!(changed = applied.changed, "reverted changed settings");
+                Ok(applied.describe("Reverted"))
+            }
+            DriftChoice::KeepHere => {
+                self.remember(None, current)?;
+                tracing::info!(changes = changes.len(), "kept changed settings on this account only");
+                Ok(format!("Kept {} on this account only", count(changes.len(), "change")))
+            }
+        }
     }
 
     /// Whether the logged-in account applies its profile by itself at login.
@@ -306,22 +422,26 @@ impl Engine {
         Ok(Applied { changed: changes.len().saturating_sub(stuck.len()), stuck })
     }
 
-    /// Records what is now on the account. A profile id also becomes the account's
-    /// profile; an undo (`None`) leaves that alone.
-    fn remember(&self, profile_id: Option<&str>, applied: SettingsMap) -> Result<()> {
-        let mut state = self.inner.store.load_state()?;
-        state.active_profile = profile_id.map(str::to_owned);
-        state.applied = Some(applied);
-        self.inner.store.save_state(&state)?;
+    /// Records what is now on the account as its baseline. A profile id also becomes the
+    /// account's profile; an undo or a kept change (`None`) leaves that alone.
+    fn remember(&self, profile_id: Option<&str>, on_account: SettingsMap) -> Result<()> {
+        if let Some(profile_id) = profile_id {
+            let mut state = self.inner.store.load_state()?;
+            state.active_profile = Some(profile_id.to_owned());
+            self.inner.store.save_state(&state)?;
+        }
 
-        if let (Some(profile_id), Ok(connection)) = (profile_id, self.connection()) {
+        if let Ok(connection) = self.connection() {
             let mut accounts = self.inner.store.load_accounts()?;
-            let account = accounts.accounts.entry(connection.puuid).or_insert_with(|| Account {
-                display_name: self.status.borrow().riot_id().unwrap_or_default(),
-                profile_id: None,
-                auto_apply: false,
-            });
-            account.profile_id = Some(profile_id.to_owned());
+            let account = accounts
+                .accounts
+                .entry(connection.puuid)
+                .or_insert_with(|| Account::new(self.status.borrow().riot_id().unwrap_or_default()));
+            if let Some(profile_id) = profile_id {
+                account.profile_id = Some(profile_id.to_owned());
+            }
+            // From here on, anything that differs from this is a change the user made.
+            account.baseline = Some(on_account);
             self.inner.store.save_accounts(&accounts)?;
         }
         self.inner.changed.send_modify(|revision| *revision += 1);
@@ -341,21 +461,57 @@ impl Engine {
 #[derive(Debug, PartialEq)]
 enum AtLogin<'a> {
     Apply(&'a str),
+    /// The account changed while mimic was not looking. Ask; do not overwrite.
+    AskAboutChanges,
     Nothing,
-    /// There is something to apply, but it has to wait for a later login.
+    /// There is something to do, but it has to wait for a later login.
     GameUnderWay,
 }
 
-/// What to do when an account becomes ready. A profile the user queued wins over the
-/// account's own profile, which only counts if the account opted into auto-apply. A
-/// game that is starting or running already has its settings, so nothing is applied
-/// then and a queued profile stays queued.
-fn at_login<'a>(queued: Option<&'a str>, mapped: Option<&'a str>, auto_apply: bool, phase: &str) -> AtLogin<'a> {
-    let Some(id) = queued.or(mapped.filter(|_| auto_apply)) else { return AtLogin::Nothing };
-    if matches!(phase, "ChampSelect" | "GameStart" | "InProgress" | "Reconnect") {
+/// What to do when an account becomes ready. A profile the user queued wins, as an
+/// explicit request. Otherwise settings that changed behind mimic's back are asked
+/// about before auto-apply could overwrite them. The account's own profile only counts
+/// if the account opted into auto-apply. A game that is starting or running already
+/// has its settings, so nothing happens then and a queued profile stays queued.
+fn at_login<'a>(
+    queued: Option<&'a str>,
+    mapped: Option<&'a str>,
+    auto_apply: bool,
+    drifted: bool,
+    phase: &str,
+) -> AtLogin<'a> {
+    let wanted = match (queued, drifted, mapped.filter(|_| auto_apply)) {
+        (Some(id), _, _) => AtLogin::Apply(id),
+        (None, true, _) => AtLogin::AskAboutChanges,
+        (None, false, Some(id)) => AtLogin::Apply(id),
+        (None, false, None) => return AtLogin::Nothing,
+    };
+    if in_game(phase) {
         return AtLogin::GameUnderWay;
     }
-    AtLogin::Apply(id)
+    wanted
+}
+
+/// Phases in which the game is starting or running.
+pub(super) fn in_game(phase: &str) -> bool {
+    matches!(phase, "ChampSelect" | "GameStart" | "InProgress" | "Reconnect")
+}
+
+/// What differs between the baseline and what is on the account now, leaving out the
+/// window layout the game rewrites on its own.
+fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec<Change> {
+    diff(baseline, current)
+        .into_iter()
+        .filter(|change| !is_volatile(&change.file, &change.section, &change.key))
+        .collect()
+}
+
+fn count(n: usize, noun: &str) -> String {
+    if n == 1 {
+        format!("1 {noun}")
+    } else {
+        format!("{n} {noun}s")
+    }
 }
 
 /// The profile `current` already matches, if any: applying it would change nothing but
@@ -383,22 +539,47 @@ mod tests {
 
     #[test]
     fn login_applies_a_queued_profile_or_an_opted_in_one() {
-        assert_eq!(at_login(None, None, true, "None"), AtLogin::Nothing);
+        assert_eq!(at_login(None, None, true, false, "None"), AtLogin::Nothing);
         // Having a profile is not consent to auto-apply.
-        assert_eq!(at_login(None, Some("main"), false, "Lobby"), AtLogin::Nothing);
-        assert_eq!(at_login(None, Some("main"), true, "Lobby"), AtLogin::Apply("main"));
+        assert_eq!(at_login(None, Some("main"), false, false, "Lobby"), AtLogin::Nothing);
+        assert_eq!(at_login(None, Some("main"), true, false, "Lobby"), AtLogin::Apply("main"));
         // What the user explicitly queued wins, with or without auto-apply.
-        assert_eq!(at_login(Some("alt"), Some("main"), true, "None"), AtLogin::Apply("alt"));
-        assert_eq!(at_login(Some("alt"), None, false, "None"), AtLogin::Apply("alt"));
+        assert_eq!(at_login(Some("alt"), Some("main"), true, false, "None"), AtLogin::Apply("alt"));
+        assert_eq!(at_login(Some("alt"), None, false, false, "None"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn login_asks_before_auto_apply_overwrites_changes() {
+        // Changed behind our back: auto-apply must not silently undo it.
+        assert_eq!(at_login(None, Some("main"), true, true, "None"), AtLogin::AskAboutChanges);
+        assert_eq!(at_login(None, Some("main"), false, true, "None"), AtLogin::AskAboutChanges);
+        // An explicit request still goes ahead.
+        assert_eq!(at_login(Some("alt"), Some("main"), true, true, "None"), AtLogin::Apply("alt"));
     }
 
     #[test]
     fn login_waits_when_a_game_is_under_way() {
         for phase in ["ChampSelect", "GameStart", "InProgress", "Reconnect"] {
-            assert_eq!(at_login(Some("alt"), None, false, phase), AtLogin::GameUnderWay, "{phase}");
+            assert_eq!(at_login(Some("alt"), None, false, false, phase), AtLogin::GameUnderWay, "{phase}");
+            assert_eq!(at_login(None, Some("main"), true, true, phase), AtLogin::GameUnderWay, "{phase}");
         }
-        assert_eq!(at_login(None, None, false, "InProgress"), AtLogin::Nothing);
-        assert_eq!(at_login(Some("alt"), None, false, "EndOfGame"), AtLogin::Apply("alt"));
+        assert_eq!(at_login(None, None, false, false, "InProgress"), AtLogin::Nothing);
+        assert_eq!(at_login(Some("alt"), None, false, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn user_changes_ignore_layout_the_game_moves() {
+        let mut baseline = SettingsMap::default();
+        baseline.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        baseline.set("Game.cfg", "HUD", "DeathRecapNativeOffsetX", "0.1355");
+        let mut current = baseline.clone();
+        current.set("Game.cfg", "HUD", "DeathRecapNativeOffsetX", "0.0852");
+        assert!(user_changes(&baseline, &current).is_empty());
+
+        current.set("Input.ini", "GameEvents", "evtCastSpell1", "[Shift][q]");
+        let changes = user_changes(&baseline, &current);
+        assert_eq!(changes.len(), 1);
+        assert_eq!((changes[0].key.as_str(), changes[0].to.as_deref()), ("evtCastSpell1", Some("[Shift][q]")));
     }
 
     #[test]

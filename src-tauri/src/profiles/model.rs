@@ -71,6 +71,17 @@ pub struct Account {
     /// Apply the profile automatically when this account logs in.
     #[serde(default)]
     pub auto_apply: bool,
+    /// What was on the account when mimic last saved, applied or accepted its settings.
+    /// Anything that differs from this later is a change the user made. It is what
+    /// actually landed, not the profile, so a value the client refused never counts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub baseline: Option<SettingsMap>,
+}
+
+impl Account {
+    pub fn new(display_name: String) -> Self {
+        Account { display_name, profile_id: None, auto_apply: false, baseline: None }
+    }
 }
 
 /// `state.json`: what mimic last did, so it can pick up where it left off.
@@ -79,8 +90,6 @@ pub struct State {
     pub schema: u32,
     /// The profile most recently applied or captured.
     pub active_profile: Option<String>,
-    /// The settings we last wrote, which is the baseline for detecting changes.
-    pub applied: Option<SettingsMap>,
     /// A profile chosen while no account was logged in; applied at the next login.
     #[serde(default)]
     pub pending_apply: Option<String>,
