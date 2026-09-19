@@ -54,6 +54,16 @@ impl LcuClient {
         self.send(path, self.request(Method::GET, path)).await
     }
 
+    /// Fetches a binary asset, such as a champion icon.
+    pub async fn get_bytes(&self, path: &str) -> Result<Vec<u8>> {
+        let response = self.request(Method::GET, path).send().await?;
+        let status = response.status();
+        if !status.is_success() {
+            return Err(LcuError::Status { path: path.to_owned(), status: status.as_u16(), body: String::new() });
+        }
+        Ok(response.bytes().await?.to_vec())
+    }
+
     pub async fn patch<B: Serialize, T: DeserializeOwned>(&self, path: &str, body: &B) -> Result<T> {
         self.send(path, self.request(Method::PATCH, path).json(body)).await
     }

@@ -1,3 +1,4 @@
+pub mod champions;
 mod commands;
 pub mod engine;
 pub mod lcu;
@@ -9,6 +10,7 @@ mod tray;
 
 use tauri::{Manager, WindowEvent};
 
+use champions::Champions;
 use engine::Engine;
 use profiles::Store;
 
@@ -29,6 +31,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             tray::current_notice,
             commands::view,
+            commands::champions,
             commands::apply_profile,
             commands::set_auto_apply,
             commands::rename_profile,
@@ -46,7 +49,7 @@ pub fn run() {
         ])
         .setup(move |app| {
             // The engine needs Tauri's Tokio runtime to be current when it spawns.
-            let engine = tauri::async_runtime::block_on(async { Engine::spawn(Store::new(data_dir)) });
+            let engine = tauri::async_runtime::block_on(async { Engine::spawn(Store::new(&data_dir), Champions::new(&data_dir)) });
             app.manage(engine.clone());
             tray::init(app.handle(), engine)?;
             Ok(())

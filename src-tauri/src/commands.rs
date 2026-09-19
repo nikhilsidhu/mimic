@@ -35,6 +35,30 @@ pub struct ProfileView {
     settings: usize,
 }
 
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChampionView {
+    id: u32,
+    name: String,
+    /// Absolute path of the cached icon, for the asset protocol.
+    icon: String,
+}
+
+/// Every champion, by name. Empty until a League client has been seen once.
+#[tauri::command]
+pub fn champions(engine: State<Engine>) -> Vec<ChampionView> {
+    let champions = engine.champions();
+    champions
+        .list()
+        .into_iter()
+        .map(|champion| ChampionView {
+            icon: champions.icon_path(champion.id).to_string_lossy().into_owned(),
+            id: champion.id,
+            name: champion.name,
+        })
+        .collect()
+}
+
 type Answer = Result<String, String>;
 
 #[tauri::command]

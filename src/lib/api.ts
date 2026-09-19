@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
 export type ProfileView = {
@@ -37,6 +37,19 @@ export type Drift = {
 };
 
 export type DriftChoice = "saveToProfile" | "revert" | "keepHere";
+
+export type Champion = {
+  id: number;
+  name: string;
+  /** A URL the web view can load the cached icon from. */
+  icon: string;
+};
+
+/** Every champion, by name. Empty until a League client has been seen once. */
+export async function getChampions(): Promise<Champion[]> {
+  const champions = await invoke<Champion[]>("champions");
+  return champions.map((champion) => ({ ...champion, icon: convertFileSrc(champion.icon) }));
+}
 
 export const getView = () => invoke<View>("view");
 export const getDrift = () => invoke<Drift | null>("drift");

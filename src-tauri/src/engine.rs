@@ -12,6 +12,7 @@ use tokio::time::sleep;
 
 pub use actions::{ActionError, Announcement, Applied, Drift, DriftChoice, Outcome};
 
+use crate::champions::Champions;
 use crate::lcu::{self, LcuClient, Lockfile, Summoner};
 use crate::platform::LeagueInstall;
 use crate::profiles::Store;
@@ -72,6 +73,7 @@ pub struct Engine {
 
 struct Inner {
     store: Store,
+    champions: Champions,
     /// Set while an account is logged in and ready.
     connection: Mutex<Option<Connection>>,
     /// Actions read, snapshot and write; two of them must never interleave.
@@ -92,11 +94,12 @@ struct Connection {
 
 impl Engine {
     /// Starts the engine on the current Tokio runtime.
-    pub fn spawn(store: Store) -> Engine {
+    pub fn spawn(store: Store, champions: Champions) -> Engine {
         let (status, receiver) = watch::channel(Status::default());
         let (notices, notices_out) = mpsc::unbounded_channel();
         let inner = Arc::new(Inner {
             store,
+            champions,
             connection: Mutex::new(None),
             action_lock: tokio::sync::Mutex::new(()),
             changed: watch::channel(0).0,
@@ -106,6 +109,11 @@ impl Engine {
         let engine = Engine { status: receiver, inner };
         tokio::spawn(run(status, engine.clone()));
         engine
+    }
+
+    /// Champion names and icons, cached from the client.
+    pub fn champions(&self) -> &Champions {
+        &self.inner.champions
     }
 
     /// Fires whenever profiles or the active profile change.
@@ -146,6 +154,18 @@ async fn run(status: watch::Sender<Status>, engine: Engine) {
             Err(err) => tracing::warn!("lost the League client: {err}"),
         }
         sleep(Duration::from_secs(2)).await;
+    }
+}
+
+/// Fetches whatever champion names and icons the cache is missing.
+async fn refresh_champions(engine: Engine, client: LcuClient) {
+    match engine.inner.champions.refresh(&client).await {
+        Ok(0) => {}
+        Ok(fetched) => {
+            tracing::info!(fetched, "cached champion icons");
+            engine.inner.changed.send_modify(|revision| *revision += 1);
+        }
+        Err(err) => tracing::warn!("could not refresh champion data: {err}"),
     }
 }
 
@@ -205,6 +225,7 @@ async fn follow(
     status.send_replace(Status::Connected { account: account.clone(), phase: phase.clone() });
     // In the background: applying takes a second or two and phases must keep flowing.
     tokio::spawn(engine.clone().on_login(account.clone(), phase.clone()));
+    tokio::spawn(refresh_champions(engine.clone(), client.clone()));
 
     // Whether a game has been running since the last check for changed settings.
     let mut played = phase == "InProgress";
