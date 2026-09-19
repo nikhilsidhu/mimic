@@ -8,4 +8,4 @@ mod model;
 mod ops;
 
 pub use model::{PersistedFile, PersistedSection, PersistedSetting, PersistedSettings};
-pub use ops::{diff, merge, overlay_between, Change, SettingsMap};
+pub use ops::{diff, is_volatile, merge, overlay_between, Change, SettingsMap};

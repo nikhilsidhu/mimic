@@ -12,6 +12,18 @@ fn is_local(file: &str, section: &str, key: &str) -> bool {
     LOCAL_KEYS.contains(&(file, section, key))
 }
 
+/// Whether a key is window layout the game rewrites on its own: where the chat, shop
+/// and death recap sit and how big the shop is. These belong in a profile, so that a
+/// new account gets the same layout, but a difference in them alone is not a change
+/// the user made and must not trigger an apply or a prompt.
+pub fn is_volatile(file: &str, _section: &str, key: &str) -> bool {
+    file == "Game.cfg"
+        && (key.contains("NativeOffset")
+            || key.starts_with("ItemShopPrev")
+            || key.starts_with("ItemShopResize")
+            || matches!(key, "ChatX" | "ChatY"))
+}
+
 type Section = BTreeMap<String, String>;
 type File = BTreeMap<String, Section>;
 
@@ -37,6 +49,12 @@ impl SettingsMap {
 
     pub fn is_empty(&self) -> bool {
         self.iter().next().is_none()
+    }
+
+    /// True when every key in here is volatile layout (see [`is_volatile`]), which
+    /// includes being empty.
+    pub fn is_only_volatile(&self) -> bool {
+        self.iter().all(|(file, section, key, _)| is_volatile(file, section, key))
     }
 
     pub fn len(&self) -> usize {
@@ -213,6 +231,26 @@ mod tests {
             ]
         );
         assert!(diff(&from, &from).is_empty());
+    }
+
+    #[test]
+    fn layout_the_game_rewrites_is_volatile() {
+        for key in ["DeathRecapNativeOffsetX", "ItemShopPrevX", "ItemShopResizeWidth"] {
+            assert!(is_volatile("Game.cfg", "HUD", key), "{key}");
+        }
+        assert!(is_volatile("Game.cfg", "Chat", "ChatX"));
+        assert!(is_volatile("Game.cfg", "ItemShop", "NativeOffsetY"));
+        assert!(!is_volatile("Game.cfg", "HUD", "MinimapScale"));
+        assert!(!is_volatile("Input.ini", "GameEvents", "evtCastSpell1"));
+
+        // The real file has such keys, and a diff made only of them counts as nothing.
+        let base = sample();
+        let mut moved = base.clone();
+        moved.set("Game.cfg", "HUD", "DeathRecapNativeOffsetX", "0.0852");
+        assert!(overlay_between(&base, &moved).is_only_volatile());
+        moved.set("Input.ini", "GameEvents", "evtCastSpell1", "[Shift][F12]");
+        assert!(!overlay_between(&base, &moved).is_only_volatile());
+        assert!(SettingsMap::default().is_only_volatile());
     }
 
     #[test]
