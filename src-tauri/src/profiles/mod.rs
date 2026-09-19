@@ -4,7 +4,7 @@
 mod model;
 mod store;
 
-pub use model::{Account, Accounts, Overlay, Profile, Snapshot, SCHEMA_VERSION};
+pub use model::{Account, Accounts, Overlay, Profile, Snapshot, State, SCHEMA_VERSION};
 pub use store::Store;
 
 #[derive(Debug, thiserror::Error)]

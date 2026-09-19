@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 
-use super::model::{Accounts, Overlay, Profile, Snapshot, SCHEMA_VERSION};
+use super::model::{Accounts, Overlay, Profile, Snapshot, State, SCHEMA_VERSION};
 use super::{ProfileError, Result};
 
 /// The data directory (`%APPDATA%\mimic` in the app):
@@ -90,6 +90,17 @@ impl Store {
 
     pub fn save_accounts(&self, accounts: &Accounts) -> Result<()> {
         write_json(&self.root.join("accounts.json"), accounts)
+    }
+
+    // State
+
+    pub fn load_state(&self) -> Result<State> {
+        let state = read_json(&self.root.join("state.json"))?;
+        Ok(state.unwrap_or(State { schema: SCHEMA_VERSION, ..State::default() }))
+    }
+
+    pub fn save_state(&self, state: &State) -> Result<()> {
+        write_json(&self.root.join("state.json"), state)
     }
 
     // Snapshots

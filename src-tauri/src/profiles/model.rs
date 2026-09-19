@@ -73,6 +73,16 @@ pub struct Account {
     pub auto_apply: bool,
 }
 
+/// `state.json`: what mimic last did, so it can pick up where it left off.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct State {
+    pub schema: u32,
+    /// The profile most recently applied or captured.
+    pub active_profile: Option<String>,
+    /// The settings we last wrote, which is the baseline for detecting changes.
+    pub applied: Option<SettingsMap>,
+}
+
 /// The settings as they were right before mimic changed them.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Snapshot {
