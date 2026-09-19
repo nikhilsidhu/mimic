@@ -12,9 +12,15 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "mimic",
-        "width": 800,
-        "height": 600
+        "width": 920,
+        "height": 620,
+        "minWidth": 560,
+        "minHeight": 420,
+        "decorations": false,
+        "shadow": true,
+        "visible": false
       }
     ],
     "security": {
