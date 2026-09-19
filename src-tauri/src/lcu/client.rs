@@ -63,6 +63,17 @@ impl LcuClient {
         self.gameflow_phase().await.is_ok()
     }
 
+    /// Whether an account is logged in and its settings have been downloaded.
+    ///
+    /// For several seconds after the client starts it answers requests but knows no
+    /// account, returns empty settings, and `PersistedSettings.json` still belongs to
+    /// whoever was logged in before. Nothing may be read or applied until this is true.
+    pub async fn is_ready(&self) -> bool {
+        let login: Result<serde_json::Value> = self.get("/lol-login/v1/session").await;
+        let logged_in = login.is_ok_and(|session| session.get("state").and_then(|state| state.as_str()) == Some("SUCCEEDED"));
+        logged_in && self.get::<bool>("/lol-game-settings/v1/ready").await.unwrap_or(false)
+    }
+
     pub async fn gameflow_phase(&self) -> Result<String> {
         self.get("/lol-gameflow/v1/gameflow-phase").await
     }
@@ -86,14 +97,36 @@ impl LcuClient {
     /// The PATCH endpoints accept the file's string values as they are, including keys
     /// and sections that their own GET view leaves out, and rewrite
     /// `PersistedSettings.json`, `game.cfg` and `input.ini` immediately.
+    ///
+    /// The client allows a key on only one action and resolves a conflict by unbinding
+    /// one side. Moving a key from one action to another in a single PATCH therefore
+    /// loses it, so keys are freed in a first pass and bound in a second.
     pub async fn apply_settings(&self, settings: &SettingsMap) -> Result<()> {
-        for (file, sections) in &settings.0 {
-            let path = settings_endpoint(file)?;
-            let _: serde_json::Value = self.patch(path, sections).await?;
+        let (unbinds, rest) = split_unbinds(settings);
+        for pass in [&unbinds, &rest] {
+            for (file, sections) in &pass.0 {
+                let path = settings_endpoint(file)?;
+                let _: serde_json::Value = self.patch(path, sections).await?;
+            }
         }
         self.save_settings().await?;
         Ok(())
     }
+}
+
+/// Splits off the keybinds that are being cleared.
+fn split_unbinds(settings: &SettingsMap) -> (SettingsMap, SettingsMap) {
+    let (mut unbinds, mut rest) = (SettingsMap::default(), SettingsMap::default());
+    for (file, section, key, value) in settings.iter() {
+        let target = if file == "Input.ini" && is_unbound(value) { &mut unbinds } else { &mut rest };
+        target.set(file, section, key, value);
+    }
+    (unbinds, rest)
+}
+
+/// `""`, `"[<Unbound>]"` and `"[<Unbound>],[<Unbound>]"` all mean no key.
+fn is_unbound(bind: &str) -> bool {
+    bind.split(',').all(|part| matches!(part.trim(), "" | "[<Unbound>]"))
 }
 
 fn settings_endpoint(file: &str) -> Result<&'static str> {
@@ -113,6 +146,23 @@ mod tests {
         assert_eq!(settings_endpoint("Game.cfg").unwrap(), "/lol-game-settings/v1/game-settings");
         assert_eq!(settings_endpoint("Input.ini").unwrap(), "/lol-game-settings/v1/input-settings");
         assert!(matches!(settings_endpoint("Other.cfg"), Err(LcuError::UnknownSettingsFile(_))));
+    }
+
+    #[test]
+    fn frees_keys_before_binding_them() {
+        let mut settings = SettingsMap::default();
+        settings.set("Input.ini", "GameEvents", "evtPushToTalk", "[<Unbound>]");
+        settings.set("Input.ini", "GameEvents", "evtPlayerAttackMove", "[<Unbound>],[<Unbound>]");
+        settings.set("Input.ini", "GameEvents", "evtShowHealthBars", "");
+        settings.set("Input.ini", "GameEvents", "evtSelectAlly3", "[c]");
+        settings.set("Input.ini", "GameEvents", "evtSmartCast", "[<Unbound>],[x]");
+        // Not a keybind, so an empty value is just a value.
+        settings.set("Game.cfg", "Chat", "Transparency", "");
+
+        let (unbinds, rest) = split_unbinds(&settings);
+        let keys = |map: &SettingsMap| map.iter().map(|(_, _, key, _)| key.to_owned()).collect::<Vec<_>>();
+        assert_eq!(keys(&unbinds), ["evtPlayerAttackMove", "evtPushToTalk", "evtShowHealthBars"]);
+        assert_eq!(keys(&rest), ["Transparency", "evtSelectAlly3", "evtSmartCast"]);
     }
 
     #[test]
