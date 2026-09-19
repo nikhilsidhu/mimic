@@ -165,19 +165,17 @@ pub fn open_logs(app: AppHandle) -> Result<(), String> {
     app.opener().open_path(logs.to_string_lossy(), None::<&str>).map_err(|err| err.to_string())
 }
 
-/// Shows `message` in the notice popup. The menu closes before its action finishes, so
-/// this is how it reports the result.
+/// Shows `message` in the notice popup. For windows that close before their action
+/// has anything to say, like the changed-settings prompt.
 #[tauri::command]
 pub fn notify(app: AppHandle, message: String) {
     tray::show_notice(&app, message);
 }
 
-/// Closes the tray flyout that called it.
+/// Closes the tray panel.
 #[tauri::command]
-pub fn dismiss(app: AppHandle, window: tauri::WebviewWindow) {
-    if let Some(flyout) = tray::Flyout::from_label(window.label()) {
-        let _ = tray::hide_flyout(&app, flyout);
-    }
+pub fn dismiss(app: AppHandle) {
+    let _ = tray::hide_panel(&app);
 }
 
 #[tauri::command]

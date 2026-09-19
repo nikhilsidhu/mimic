@@ -2,7 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the manager window, the tray panel and the tray popups",
-  "windows": ["main", "panel", "menu", "notice", "drift"],
+  "windows": ["main", "panel", "notice", "drift"],
   "permissions": [
     "core:default",
     "core:window:allow-hide",

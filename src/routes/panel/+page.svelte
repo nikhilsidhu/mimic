@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
+  import FileText from "@lucide/svelte/icons/file-text";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Power from "@lucide/svelte/icons/power";
   import Settings from "@lucide/svelte/icons/settings";
@@ -37,9 +38,21 @@
     refresh();
   }
 
+  /** For buttons that open something else: the panel gets out of the way, like a menu. */
+  function leaveFor(action: () => Promise<void>) {
+    api.dismiss();
+    action().catch((err) => api.notify(String(err)));
+  }
+
   onMount(() => {
     refresh();
-    return api.onViewChanged(refresh);
+    const stop = api.onViewChanged(refresh);
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && api.dismiss();
+    window.addEventListener("keydown", onKey);
+    return () => {
+      stop();
+      window.removeEventListener("keydown", onKey);
+    };
   });
 
   function say(text: string, failed = false) {
@@ -171,7 +184,10 @@
       Undo last apply
     </Button>
     <span class="flex-1"></span>
-    <Button variant="ghost" size="icon" onclick={api.openManager} aria-label="Open manager" title="Open manager">
+    <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openLogs)} aria-label="Open logs folder" title="Open logs folder">
+      <FileText />
+    </Button>
+    <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openManager)} aria-label="Open manager" title="Open manager">
       <Settings />
     </Button>
     <Button variant="ghost" size="icon" onclick={api.quit} aria-label="Quit mimic" title="Quit mimic">

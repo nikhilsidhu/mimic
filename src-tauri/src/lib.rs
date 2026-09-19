@@ -27,7 +27,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .manage(tray::Notice::default())
-        .manage(tray::Flyouts::default())
+        .manage(tray::PanelHidden::default())
         .invoke_handler(tauri::generate_handler![
             tray::current_notice,
             commands::view,
@@ -60,11 +60,9 @@ pub fn run() {
                 api.prevent_close();
                 let _ = window.hide();
             }
-            // The tray flyouts behave like menus: clicking anywhere else dismisses them.
-            WindowEvent::Focused(false) => {
-                if let Some(flyout) = tray::Flyout::from_label(window.label()) {
-                    tray::hide_flyout_if_inactive(window.clone(), flyout);
-                }
+            // The tray panel behaves like a menu: clicking anywhere else dismisses it.
+            WindowEvent::Focused(false) if window.label() == tray::PANEL => {
+                tray::hide_panel_if_inactive(window.clone());
             }
             _ => {}
         })

@@ -79,6 +79,6 @@ export const openManager = () => invoke<void>("open_manager");
 export const openLogs = () => invoke<void>("open_logs");
 /** Shows a sentence in the notice popup next to the tray. */
 export const notify = (message: string) => invoke<void>("notify", { message });
-/** Closes the tray flyout (panel or menu) this page runs in. */
+/** Closes the tray panel. */
 export const dismiss = () => invoke<void>("dismiss");
 export const quit = () => invoke<void>("quit");
