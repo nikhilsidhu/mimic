@@ -3,14 +3,36 @@
 
 use serde_json::Value;
 
-use super::actions::{read_settings, user_changes, Announcement, Result};
+use super::actions::{read_settings, user_changes, ActionError, Announcement, DriftChoice, Result};
 use super::Engine;
 use crate::profiles::Overlay;
-use crate::settings::merge;
+use crate::settings::{is_volatile, merge, overlay_between, SettingsMap};
 
 /// Swiftplay. It has no real champ select: the champion is chosen in the lobby and the
 /// game launches about a second after the champ-select session appears.
 const SWIFTPLAY_QUEUE: i64 = 480;
+
+/// Somewhere a champion's settings could be taken from.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct OverlaySource {
+    /// The profile to take them from, or `None` for what the user changed just now.
+    pub profile: Option<String>,
+    pub name: String,
+    /// How many settings it would override.
+    pub settings: usize,
+}
+
+/// What `settings` has different from `base`, leaving out what changes on its own. This
+/// is what an overlay made from `settings` has to carry.
+pub(super) fn overrides(base: &SettingsMap, settings: &SettingsMap) -> SettingsMap {
+    let mut overrides = SettingsMap::default();
+    for (file, section, key, value) in overlay_between(base, settings).iter() {
+        if !is_volatile(file, section, key) {
+            overrides.set(file, section, key, value);
+        }
+    }
+    overrides
+}
 
 /// What a champion becoming the local player's pick calls for.
 #[derive(Debug, PartialEq)]
@@ -127,6 +149,56 @@ impl Engine {
         }
     }
 
+    /// Where a champion's settings could be taken from right now, each with the number
+    /// of settings it would override. The first is always what the user changed on the
+    /// account since its baseline; the rest are the saved profiles that differ from it.
+    pub fn overlay_sources(&self) -> Result<Vec<OverlaySource>> {
+        let connection = self.connection()?;
+        let account = self.account().ok_or(ActionError::NotConnected)?;
+        let baseline = account.baseline.clone().ok_or(ActionError::NoBaseline)?;
+        let expected = self.expected(&account)?.unwrap_or_else(|| baseline.clone());
+
+        let changed_now = user_changes(&expected, &read_settings(&connection)?).len();
+        let mut sources = vec![OverlaySource { profile: None, name: String::new(), settings: changed_now }];
+        for profile in self.inner.store.list_profiles()? {
+            let settings = overrides(&baseline, &profile.settings).len();
+            if settings > 0 && account.profile_id.as_deref() != Some(profile.id.as_str()) {
+                sources.push(OverlaySource { profile: Some(profile.id), name: profile.name, settings });
+            }
+        }
+        Ok(sources)
+    }
+
+    /// Gives `champion` its own settings: what the user changed on the account just now
+    /// (which then comes off the account again, as it is meant for one champion), or,
+    /// with a profile id, whatever that profile has different from the account's base.
+    /// Added to the champion's overlay if it already has one.
+    pub async fn save_overlay(&self, champion: u32, from_profile: Option<&str>) -> Result<String> {
+        let Some(profile_id) = from_profile else {
+            return self.settle_changes(DriftChoice::SaveToChampion, Some(champion)).await;
+        };
+
+        let _guard = self.inner.action_lock.lock().await;
+        let baseline = self.account().and_then(|account| account.baseline).ok_or(ActionError::NoBaseline)?;
+        let profile = self
+            .inner
+            .store
+            .load_profile(profile_id)?
+            .ok_or_else(|| ActionError::NoSuchProfile(profile_id.to_owned()))?;
+        let overrides = overrides(&baseline, &profile.settings);
+
+        let mut overlay =
+            self.inner.store.load_overlay(champion)?.unwrap_or_else(|| Overlay::new(champion, Default::default()));
+        overlay.settings = merge(&overlay.settings, &overrides);
+        overlay.updated = time::OffsetDateTime::now_utc();
+        self.inner.store.save_overlay(&overlay)?;
+
+        let name = self.inner.champions.name(champion).unwrap_or_else(|| format!("champion {champion}"));
+        tracing::info!(champion, profile = profile_id, settings = overrides.len(), "saved champion overlay from a profile");
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(format!("{name} now uses {} settings from '{}'", overrides.len(), profile.name))
+    }
+
     /// Every champion overlay that overrides something, by champion id.
     pub fn overlays(&self) -> Result<Vec<Overlay>> {
         Ok(self.inner.store.list_overlays()?.into_iter().filter(|overlay| !overlay.settings.is_empty()).collect())
@@ -167,6 +239,24 @@ mod tests {
         assert_eq!(on_pick(Some(157), 18, true), Step::Apply);
         // Rerolled to one without: the previous champion's settings must come off.
         assert_eq!(on_pick(Some(157), 18, false), Step::Restore);
+    }
+
+    #[test]
+    fn an_overlay_from_a_profile_carries_only_what_differs() {
+        let mut base = SettingsMap::default();
+        base.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        base.set("Input.ini", "GameEvents", "evtCastSpell2", "[w]");
+        base.set("Game.cfg", "ItemShop", "CurrentTab", "0");
+
+        let mut yasuo = base.clone();
+        yasuo.set("Input.ini", "GameEvents", "evtCastSpell1", "[Shift][q]");
+        // The shop's state is not something a champion overrides.
+        yasuo.set("Game.cfg", "ItemShop", "CurrentTab", "1");
+
+        let overrides = overrides(&base, &yasuo);
+        assert_eq!(overrides.len(), 1);
+        assert_eq!(overrides.get("Input.ini", "GameEvents", "evtCastSpell1"), Some("[Shift][q]"));
+        assert!(super::overrides(&base, &base).is_empty());
     }
 
     #[test]

@@ -12,6 +12,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
 pub use actions::{ActionError, Announcement, Applied, ChampionRef, Drift, DriftChoice, Outcome};
+pub use overlays::OverlaySource;
 
 use crate::champions::Champions;
 use crate::lcu::{self, LcuClient, Lockfile, Summoner};

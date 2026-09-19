@@ -22,6 +22,10 @@ pub enum ActionError {
     NoProfile,
     #[error("there is no champion to save this for")]
     NoChampion,
+    #[error("mimic does not know this account's settings yet; apply or save a profile first")]
+    NoBaseline,
+    #[error("nothing on this account differs from its base, so there is nothing to keep")]
+    NothingChanged,
     #[error("could not read League's settings file: {0}")]
     ReadSettings(String),
     #[error(transparent)]
@@ -305,6 +309,12 @@ impl Engine {
     /// Settles what [`Engine::drift`] reported. Whatever is chosen, a champion's overlay
     /// comes off afterwards and the account is back on its base.
     pub async fn resolve_drift(&self, choice: DriftChoice) -> Result<String> {
+        self.settle_changes(choice, None).await
+    }
+
+    /// `for_champion` names the champion for [`DriftChoice::SaveToChampion`]; without it
+    /// the one whose overlay is on, or else the one just played, is used.
+    pub(super) async fn settle_changes(&self, choice: DriftChoice, for_champion: Option<u32>) -> Result<String> {
         let _guard = self.inner.action_lock.lock().await;
         let connection = self.connection()?;
         let account = self.account().ok_or(ActionError::NotConnected)?;
@@ -313,6 +323,9 @@ impl Engine {
         };
         let current = read_settings(&connection)?;
         let changes = user_changes(&expected, &current);
+        if changes.is_empty() && choice == DriftChoice::SaveToChampion {
+            return Err(ActionError::NothingChanged);
+        }
         // A removed key is not a change anyone made.
         let set_changes = |settings: &mut SettingsMap| {
             for change in &changes {
@@ -338,8 +351,10 @@ impl Engine {
                 format!("Saved {} to '{}'", count(changes.len(), "change"), profile.name)
             }
             DriftChoice::SaveToChampion => {
-                let champion =
-                    account.overlay.or(*self.inner.last_champion.lock().unwrap()).ok_or(ActionError::NoChampion)?;
+                let champion = for_champion
+                    .or(account.overlay)
+                    .or(*self.inner.last_champion.lock().unwrap())
+                    .ok_or(ActionError::NoChampion)?;
                 let mut overlay =
                     self.inner.store.load_overlay(champion)?.unwrap_or_else(|| Overlay::new(champion, SettingsMap::default()));
                 set_changes(&mut overlay.settings);

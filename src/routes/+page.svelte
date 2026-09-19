@@ -2,11 +2,13 @@
   import { onMount, tick } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Pencil from "@lucide/svelte/icons/pencil";
+  import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import AddChampion from "$lib/components/add-champion.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
 
@@ -17,6 +19,8 @@
   /** The row being renamed or asking to confirm a delete, if any. */
   let editing = $state<{ id: string; mode: "rename" | "delete"; name: string } | null>(null);
   let renameInput = $state<HTMLInputElement | null>(null);
+  /** Whether the champion picker is open. */
+  let adding = $state(false);
 
   const refresh = async () => (view = await api.getView());
 
@@ -141,13 +145,29 @@
         </p>
       {/if}
 
-      <header class="pt-2">
-        <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
-        <p class="text-sm text-muted-foreground">
-          Settings a champion uses instead of your profile's. They go on when you pick the champion and come off
-          after the game.
-        </p>
+      <header class="flex items-end justify-between gap-4 pt-2">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
+          <p class="text-sm text-muted-foreground">
+            Settings a champion uses instead of your profile's. They go on when you pick the champion and come off
+            after the game.
+          </p>
+        </div>
+        {#if !adding}
+          <Button variant="outline" size="sm" onclick={() => (adding = true)}><Plus />Add champion</Button>
+        {/if}
       </header>
+
+      {#if adding}
+        <AddChampion
+          oncancel={() => (adding = false)}
+          onsaved={(said) => {
+            adding = false;
+            message = { text: said, failed: false };
+            refresh();
+          }}
+        />
+      {/if}
 
       <section class="overflow-hidden rounded-lg border border-border">
         {#each view?.overlays ?? [] as overlay, index (overlay.champion.id)}
@@ -191,8 +211,8 @@
           </div>
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
-            None yet. Play a champion, change settings in the game, and choose
-            <span class="text-foreground">Only for that champion</span> when mimic asks afterwards.
+            None yet. Use <span class="text-foreground">Add champion</span>, or change settings while playing a
+            champion and choose <span class="text-foreground">Only for that champion</span> when mimic asks afterwards.
           </p>
         {/each}
       </section>

@@ -54,6 +54,14 @@ export type Drift = {
   changes: Change[];
 };
 
+/** Somewhere a champion's settings could be taken from. `profile` is null for what changed just now. */
+export type OverlaySource = {
+  profile: string | null;
+  name: string;
+  /** How many settings it would override. */
+  settings: number;
+};
+
 export type DriftChoice = "saveToProfile" | "saveToChampion" | "revert" | "keepHere";
 
 // The backend hands out file paths; the web view needs asset-protocol URLs.
@@ -73,6 +81,7 @@ export async function getChampions(): Promise<Champion[]> {
   return (await invoke<Champion[]>("champions")).map(withIconUrl);
 }
 
+export const getOverlaySources = () => invoke<OverlaySource[]>("overlay_sources");
 export const getDrift = () => invoke<Drift | null>("drift");
 
 function on(event: string, onEvent: () => void): () => void {
@@ -89,6 +98,8 @@ export const onDriftChanged = (onChange: () => void) => on("drift-changed", onCh
 export const applyProfile = (id: string) => invoke<string>("apply_profile", { id });
 export const renameProfile = (id: string, name: string) => invoke<string>("rename_profile", { id, name });
 export const deleteProfile = (id: string) => invoke<string>("delete_profile", { id });
+export const saveOverlay = (champion: number, profile: string | null) =>
+  invoke<string>("save_overlay", { champion, profile });
 export const deleteOverlay = (champion: number) => invoke<string>("delete_overlay", { champion });
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");

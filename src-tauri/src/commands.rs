@@ -5,7 +5,7 @@ use tauri::{AppHandle, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::engine::{Drift, DriftChoice, Engine};
+use crate::engine::{Drift, DriftChoice, Engine, OverlaySource};
 use crate::{platform, tray};
 
 /// Longest profile name the UI may create.
@@ -118,6 +118,18 @@ pub fn view(engine: State<Engine>) -> View {
             })
             .collect(),
     }
+}
+
+/// Where a champion's settings could be taken from right now.
+#[tauri::command]
+pub fn overlay_sources(engine: State<Engine>) -> Result<Vec<OverlaySource>, String> {
+    engine.overlay_sources().map_err(|err| err.to_string())
+}
+
+/// Gives a champion its own settings, from what changed just now or from a profile.
+#[tauri::command]
+pub async fn save_overlay(engine: State<'_, Engine>, champion: u32, profile: Option<String>) -> Answer {
+    engine.save_overlay(champion, profile.as_deref()).await.map_err(|err| format!("Could not save: {err}"))
 }
 
 #[tauri::command]
