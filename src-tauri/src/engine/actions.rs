@@ -4,8 +4,8 @@ use std::time::Duration;
 
 use super::{Connection, Engine, Status};
 use crate::lcu::{LcuError, Summoner};
-use crate::profiles::{Account, Profile, ProfileError, Snapshot};
-use crate::settings::{diff, is_volatile, overlay_between, Change, PersistedSettings, SettingsMap};
+use crate::profiles::{Account, Overlay, Profile, ProfileError, Snapshot};
+use crate::settings::{diff, is_volatile, merge, overlay_between, Change, PersistedSettings, SettingsMap};
 
 /// Snapshots kept before the oldest are deleted.
 const KEEP_SNAPSHOTS: usize = 20;
@@ -20,6 +20,8 @@ pub enum ActionError {
     NoSnapshot,
     #[error("this account is not on a profile")]
     NoProfile,
+    #[error("there is no champion to save this for")]
+    NoChampion,
     #[error("could not read League's settings file: {0}")]
     ReadSettings(String),
     #[error(transparent)]
@@ -55,11 +57,19 @@ pub enum Announcement {
     Drift,
 }
 
-/// Settings the user changed, and the profile they could be saved to.
+/// Settings the user changed, and where they could be saved: the account's profile, or
+/// the champion they were made on.
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 pub struct Drift {
     pub profile: Option<String>,
+    pub champion: Option<ChampionRef>,
     pub changes: Vec<Change>,
+}
+
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ChampionRef {
+    pub id: u32,
+    pub name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
@@ -67,6 +77,9 @@ pub struct Drift {
 pub enum DriftChoice {
     /// Make the changes part of the account's profile, so other accounts get them.
     SaveToProfile,
+    /// Keep the changes for the champion they were made on, as its overlay, and take
+    /// them off the account again.
+    SaveToChampion,
     /// Put the account back the way it was.
     Revert,
     /// Accept the changes on this account and leave the profile as it is.
@@ -152,12 +165,21 @@ impl Engine {
         tokio::time::sleep(LOGIN_SETTLE).await;
         let result: Result<Option<String>> = async {
             let _guard = self.inner.action_lock.lock().await;
-            let current = read_settings(&self.connection()?)?;
+            let mut current = read_settings(&self.connection()?)?;
             let profiles = self.inner.store.list_profiles()?;
             let mut accounts = self.inner.store.load_accounts()?;
             let entry =
                 accounts.accounts.entry(account.puuid.clone()).or_insert_with(|| Account::new(riot_id.clone()));
             entry.display_name = riot_id.clone();
+            // mimic or the PC went down while a champion's settings were on. They come
+            // off before anything else, or they would look like changes the user made.
+            if entry.overlay.is_some() && !in_game(&phase) {
+                if let Some(baseline) = entry.baseline.clone() {
+                    tracing::info!(champion = entry.overlay, "taking off a champion's settings left on from last time");
+                    current = self.write_settings(&baseline, None).await?.1;
+                }
+                entry.overlay = None;
+            }
             // An account that is already on one of the profiles is recognised as such,
             // so that nobody has to apply a profile just to tell us what is there.
             if entry.profile_id.is_none() {
@@ -172,7 +194,7 @@ impl Engine {
                     entry.baseline = Some(current.clone());
                 }
             }
-            let drifted = entry.baseline.as_ref().is_some_and(|baseline| !user_changes(baseline, &current).is_empty());
+            let drifted = self.expected(entry)?.is_some_and(|expected| !user_changes(&expected, &current).is_empty());
             let (mapped, auto_apply) = (entry.profile_id.clone(), entry.auto_apply);
             self.inner.store.save_accounts(&accounts)?;
 
@@ -224,11 +246,13 @@ impl Engine {
 
     /// What the user changed on the logged-in account since mimic last saved, applied
     /// or accepted its settings. `None` when nothing did, or when there is no baseline.
+    /// With a champion's overlay on top, the overlay's own values are expected and only
+    /// what differs from `baseline ⊕ overlay` counts.
     pub fn drift(&self) -> Result<Option<Drift>> {
         let connection = self.connection()?;
         let Some(account) = self.account() else { return Ok(None) };
-        let Some(baseline) = &account.baseline else { return Ok(None) };
-        let changes = user_changes(baseline, &read_settings(&connection)?);
+        let Some(expected) = self.expected(&account)? else { return Ok(None) };
+        let changes = user_changes(&expected, &read_settings(&connection)?);
         if changes.is_empty() {
             return Ok(None);
         }
@@ -236,11 +260,32 @@ impl Engine {
             Some(id) => self.inner.store.load_profile(id)?.map(|profile| profile.name),
             None => None,
         };
-        Ok(Some(Drift { profile, changes }))
+        // Changes can be kept for the champion they were made on: the one whose overlay
+        // is active, or else the one just played.
+        let champion = account.overlay.or(*self.inner.last_champion.lock().unwrap()).map(|id| ChampionRef {
+            id,
+            name: self.inner.champions.name(id).unwrap_or_else(|| format!("champion {id}")),
+        });
+        Ok(Some(Drift { profile, champion, changes }))
+    }
+
+    /// What should be on the account if the user changed nothing: its baseline, with
+    /// the active champion overlay on top.
+    pub(super) fn expected(&self, account: &Account) -> Result<Option<SettingsMap>> {
+        let Some(baseline) = &account.baseline else { return Ok(None) };
+        let overlay = match account.overlay {
+            Some(champion) => self.inner.store.load_overlay(champion)?,
+            None => None,
+        };
+        Ok(Some(match overlay {
+            Some(overlay) => merge(baseline, &overlay.settings),
+            None => baseline.clone(),
+        }))
     }
 
     /// Runs after a game: gives the game and the client a moment to finish writing the
-    /// settings, then asks the user about whatever changed.
+    /// settings, then asks the user about whatever changed. If nothing did, a champion's
+    /// overlay comes off again without a word.
     pub(super) async fn check_drift_after_game(self) {
         tokio::time::sleep(AFTER_GAME_SETTLE).await;
         match self.drift() {
@@ -248,52 +293,80 @@ impl Engine {
                 tracing::info!(changes = drift.changes.len(), "settings changed during the game");
                 let _ = self.inner.notices.send(Announcement::Drift);
             }
-            Ok(None) => {}
+            Ok(None) => {
+                if let Err(err) = self.restore_base("the game is over").await {
+                    tracing::warn!("could not take the champion's settings off again: {err}");
+                }
+            }
             Err(err) => tracing::warn!("could not check for changed settings: {err}"),
         }
     }
 
-    /// Settles what [`Engine::drift`] reported.
+    /// Settles what [`Engine::drift`] reported. Whatever is chosen, a champion's overlay
+    /// comes off afterwards and the account is back on its base.
     pub async fn resolve_drift(&self, choice: DriftChoice) -> Result<String> {
         let _guard = self.inner.action_lock.lock().await;
         let connection = self.connection()?;
         let account = self.account().ok_or(ActionError::NotConnected)?;
-        let Some(baseline) = account.baseline else { return Ok("Nothing to do".to_owned()) };
+        let (Some(baseline), Some(expected)) = (account.baseline.clone(), self.expected(&account)?) else {
+            return Ok("Nothing to do".to_owned());
+        };
         let current = read_settings(&connection)?;
-        let changes = user_changes(&baseline, &current);
+        let changes = user_changes(&expected, &current);
+        // A removed key is not a change anyone made.
+        let set_changes = |settings: &mut SettingsMap| {
+            for change in &changes {
+                if let Some(value) = &change.to {
+                    settings.set(&change.file, &change.section, &change.key, value);
+                }
+            }
+        };
 
-        match choice {
+        // What the base becomes, and what to tell the user.
+        let mut base = baseline;
+        let said = match choice {
             DriftChoice::SaveToProfile => {
-                let id = account.profile_id.ok_or(ActionError::NoProfile)?;
+                let id = account.profile_id.clone().ok_or(ActionError::NoProfile)?;
                 let mut profile =
                     self.inner.store.load_profile(&id)?.ok_or_else(|| ActionError::NoSuchProfile(id.clone()))?;
                 // Only what changed goes in, so that values the client refused on this
-                // account do not leak into the profile. A removed key is not a change.
-                for change in &changes {
-                    if let Some(value) = &change.to {
-                        profile.settings.set(&change.file, &change.section, &change.key, value);
-                    }
-                }
+                // account do not leak into the profile.
+                set_changes(&mut profile.settings);
                 profile.updated = time::OffsetDateTime::now_utc();
                 self.inner.store.save_profile(&profile)?;
-                self.remember(Some(&profile.id), current)?;
-                tracing::info!(id = %profile.id, changes = changes.len(), "saved changed settings to the profile");
-                Ok(format!("Saved {} to '{}'", count(changes.len(), "change"), profile.name))
+                set_changes(&mut base);
+                format!("Saved {} to '{}'", count(changes.len(), "change"), profile.name)
             }
-            DriftChoice::Revert => {
-                // Riot's servers already hold the changed settings, so going back is a write.
-                let applied = self.write(&baseline, "before reverting changes", None).await?;
-                tracing::info!(changed = applied.changed, "reverted changed settings");
-                Ok(applied.describe("Reverted"))
+            DriftChoice::SaveToChampion => {
+                let champion =
+                    account.overlay.or(*self.inner.last_champion.lock().unwrap()).ok_or(ActionError::NoChampion)?;
+                let mut overlay =
+                    self.inner.store.load_overlay(champion)?.unwrap_or_else(|| Overlay::new(champion, SettingsMap::default()));
+                set_changes(&mut overlay.settings);
+                overlay.updated = time::OffsetDateTime::now_utc();
+                self.inner.store.save_overlay(&overlay)?;
+                let name = self.inner.champions.name(champion).unwrap_or_else(|| format!("champion {champion}"));
+                format!("Saved {} for {name} only", count(changes.len(), "change"))
             }
             DriftChoice::KeepHere => {
-                self.remember(None, current)?;
-                tracing::info!(changes = changes.len(), "kept changed settings on this account only");
-                Ok(format!("Kept {} on this account only", count(changes.len(), "change")))
+                set_changes(&mut base);
+                format!("Kept {} on this account only", count(changes.len(), "change"))
             }
-        }
-    }
+            DriftChoice::Revert => format!("Reverted {}", count(changes.len(), "change")),
+        };
+        tracing::info!(?choice, changes = changes.len(), "settled changed settings");
 
+        // The account goes to its base. Riot's servers already hold whatever is on it
+        // now, so this is a write whenever the two differ; when the changes were kept
+        // and no overlay is on, they do not.
+        let discards = matches!(choice, DriftChoice::SaveToChampion | DriftChoice::Revert);
+        let (_, after) = self.write_settings(&base, discards.then_some("before reverting changes")).await?;
+        self.update_account(|account| {
+            account.baseline = Some(after);
+            account.overlay = None;
+        })?;
+        Ok(said)
+    }
     /// Whether the logged-in account applies its profile by itself at login.
     pub fn auto_apply(&self) -> bool {
         self.account().is_some_and(|account| account.auto_apply)
@@ -316,9 +389,23 @@ impl Engine {
         Some(self.inner.store.load_profile(&id).ok()??.name)
     }
 
-    fn account(&self) -> Option<Account> {
+    pub(super) fn account(&self) -> Option<Account> {
         let puuid = self.connection().ok()?.puuid;
         self.inner.store.load_accounts().ok()?.accounts.remove(&puuid)
+    }
+
+    /// Changes the logged-in account's record and tells the UI.
+    pub(super) fn update_account(&self, change: impl FnOnce(&mut Account)) -> Result<()> {
+        let puuid = self.connection()?.puuid;
+        let mut accounts = self.inner.store.load_accounts()?;
+        let account = accounts
+            .accounts
+            .entry(puuid)
+            .or_insert_with(|| Account::new(self.status.borrow().riot_id().unwrap_or_default()));
+        change(account);
+        self.inner.store.save_accounts(&accounts)?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
     }
 
     /// Puts back the settings from before the most recent apply. Undoing twice redoes,
@@ -385,22 +472,37 @@ impl Engine {
         self.account()?.profile_id
     }
 
-    /// Snapshots the current settings, then writes whatever differs from `target`.
-    /// Keys the target does not mention are left alone: accounts have different key
-    /// sets, and a missing key is not a request to delete.
+    /// Snapshots the current settings, writes whatever differs from `target`, and makes
+    /// the result the account's baseline.
     async fn write(&self, target: &SettingsMap, reason: &str, profile_id: Option<&str>) -> Result<Applied> {
+        let (applied, after) = self.write_settings(target, Some(reason)).await?;
+        self.remember(profile_id, after)?;
+        Ok(applied)
+    }
+
+    /// Writes whatever differs from `target` and returns what is on the account
+    /// afterwards. Keys the target does not mention are left alone: accounts have
+    /// different key sets, and a missing key is not a request to delete. A snapshot is
+    /// taken first if a `snapshot` reason is given; overlays go without, or a few
+    /// rerolls would push every real snapshot out.
+    pub(super) async fn write_settings(
+        &self,
+        target: &SettingsMap,
+        snapshot: Option<&str>,
+    ) -> Result<(Applied, SettingsMap)> {
         let connection = self.connection()?;
         let before = read_settings(&connection)?;
         let changes = overlay_between(&before, target);
         // Layout the game moved on its own is not worth a write; it still goes along
         // whenever something real changes.
         if changes.is_only_volatile() {
-            self.remember(profile_id, before)?;
-            return Ok(Applied::default());
+            return Ok((Applied::default(), before));
         }
 
-        let snapshot = Snapshot::new(reason, Some(&connection.puuid), before.clone());
-        self.inner.store.save_snapshot(&snapshot, KEEP_SNAPSHOTS)?;
+        if let Some(reason) = snapshot {
+            let snapshot = Snapshot::new(reason, Some(&connection.puuid), before.clone());
+            self.inner.store.save_snapshot(&snapshot, KEEP_SNAPSHOTS)?;
+        }
 
         // The client can veto a value (a key it wants for something else, say), so what
         // actually landed is read back, and whatever is still off gets one more try.
@@ -418,18 +520,16 @@ impl Engine {
 
         let stuck: Vec<String> = remaining
             .iter()
-            .filter(|(file, section, key, _)| !crate::settings::is_volatile(file, section, key))
+            .filter(|(file, section, key, _)| !is_volatile(file, section, key))
             .map(|(_, _, key, _)| key.to_owned())
             .collect();
         if !stuck.is_empty() {
             tracing::warn!(?stuck, "the client did not accept some settings");
         }
-        self.remember(profile_id, after)?;
         // Saturating: resolving a key conflict can make the client unbind a key that was
         // not part of `changes`, so more can be stuck than was asked for.
-        Ok(Applied { changed: changes.len().saturating_sub(stuck.len()), stuck })
+        Ok((Applied { changed: changes.len().saturating_sub(stuck.len()), stuck }, after))
     }
-
     /// Records what is now on the account as its baseline. A profile id also becomes the
     /// account's profile; an undo or a kept change (`None`) leaves that alone.
     fn remember(&self, profile_id: Option<&str>, on_account: SettingsMap) -> Result<()> {
@@ -458,7 +558,7 @@ impl Engine {
 
     /// The live connection, only once an account is logged in and its settings are down.
     /// Before that the settings file still belongs to whoever was logged in last.
-    fn connection(&self) -> Result<Connection> {
+    pub(super) fn connection(&self) -> Result<Connection> {
         if !matches!(*self.status.borrow(), Status::Connected { .. }) {
             return Err(ActionError::NotConnected);
         }
@@ -507,7 +607,7 @@ pub(super) fn in_game(phase: &str) -> bool {
 
 /// What differs between the baseline and what is on the account now, leaving out the
 /// window layout the game rewrites on its own.
-fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec<Change> {
+pub(super) fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec<Change> {
     diff(baseline, current)
         .into_iter()
         .filter(|change| !is_volatile(&change.file, &change.section, &change.key))
@@ -533,7 +633,7 @@ fn matching_profile(current: &SettingsMap, profiles: &[Profile], last_used: Opti
         .map(|profile| profile.id.clone())
 }
 
-fn read_settings(connection: &Connection) -> Result<SettingsMap> {
+pub(super) fn read_settings(connection: &Connection) -> Result<SettingsMap> {
     let path = connection.install.persisted_settings();
     let text = std::fs::read_to_string(&path).map_err(|err| ActionError::ReadSettings(format!("{}: {err}", path.display())))?;
     let persisted: PersistedSettings =

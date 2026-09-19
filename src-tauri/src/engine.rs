@@ -2,6 +2,7 @@
 //! ready, tracks the account and game phase, and starts over when it goes away.
 
 mod actions;
+mod overlays;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -10,7 +11,7 @@ use futures_util::StreamExt;
 use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
-pub use actions::{ActionError, Announcement, Applied, Drift, DriftChoice, Outcome};
+pub use actions::{ActionError, Announcement, Applied, ChampionRef, Drift, DriftChoice, Outcome};
 
 use crate::champions::Champions;
 use crate::lcu::{self, LcuClient, Lockfile, Summoner};
@@ -19,6 +20,11 @@ use crate::profiles::Store;
 
 /// Phases that follow a game. `TerminatedInError` is how Practice Tool games end.
 const GAME_OVER: [&str; 5] = ["PreEndOfGame", "EndOfGame", "TerminatedInError", "Lobby", "None"];
+
+/// Phases that lead up to a game, and the ones the client idles in. Going from the first
+/// to the second means the game did not happen.
+const BEFORE_GAME: [&str; 3] = ["Matchmaking", "ReadyCheck", "ChampSelect"];
+const IDLE: [&str; 2] = ["Lobby", "None"];
 
 /// What the engine currently knows, for the tray and the UI.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -76,6 +82,8 @@ struct Inner {
     champions: Champions,
     /// Set while an account is logged in and ready.
     connection: Mutex<Option<Connection>>,
+    /// The champion of the current or most recent game, for saving changes to it.
+    last_champion: Mutex<Option<u32>>,
     /// Actions read, snapshot and write; two of them must never interleave.
     action_lock: tokio::sync::Mutex<()>,
     /// Bumped whenever profiles or the active profile change, so the tray can redraw.
@@ -101,6 +109,7 @@ impl Engine {
             store,
             champions,
             connection: Mutex::new(None),
+            last_champion: Mutex::new(None),
             action_lock: tokio::sync::Mutex::new(()),
             changed: watch::channel(0).0,
             notices,
@@ -229,24 +238,39 @@ async fn follow(
 
     // Whether a game has been running since the last check for changed settings.
     let mut played = phase == "InProgress";
+    // The local player's pick as last seen, so that only changes are acted on.
+    let mut pick: Option<u32> = None;
     while let Some(event) = events.next().await {
         let event = event?;
         match event.uri.as_str() {
             "/lol-gameflow/v1/gameflow-phase" => {
                 if let Some(new) = event.data.as_str() {
                     tracing::debug!(from = %phase, to = %new, "phase changed");
-                    phase = new.to_owned();
-                    // The game writes its settings as it exits. Once it is over, see
-                    // whether the user changed anything in there.
+                    let before = std::mem::replace(&mut phase, new.to_owned());
                     if phase == "InProgress" {
                         played = true;
                     } else if played && GAME_OVER.contains(&phase.as_str()) {
+                        // The game writes its settings as it exits. Once it is over, see
+                        // whether the user changed anything in there; that check also
+                        // takes a champion's overlay off again.
                         played = false;
                         tokio::spawn(engine.clone().check_drift_after_game());
+                    } else if phase == "Matchmaking" {
+                        tokio::spawn(engine.clone().on_matchmaking());
+                    } else if BEFORE_GAME.contains(&before.as_str()) && IDLE.contains(&phase.as_str()) {
+                        // A dodge or a cancelled queue: no game will take the overlay off.
+                        tokio::spawn(engine.clone().on_no_game());
                     }
                 }
             }
-            "/lol-summoner/v1/current-summoner" => {
+            "/lol-champ-select/v1/session" => {
+                let now = if event.event_type == "Delete" { None } else { overlays::picked_champion(&event.data) };
+                if let (Some(champion), true) = (now, now != pick) {
+                    tokio::spawn(engine.clone().on_champion(champion));
+                }
+                pick = now;
+                continue;
+            }            "/lol-summoner/v1/current-summoner" => {
                 if let Ok(new) = serde_json::from_value::<Summoner>(event.data) {
                     if new.puuid != account.puuid {
                         connect(&new.puuid);

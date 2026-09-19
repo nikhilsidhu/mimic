@@ -109,6 +109,16 @@
     {/if}
   </header>
 
+  {#if view?.activeOverlay}
+    <div class="flex items-center gap-2 px-3 pb-2.5">
+      <img src={view.activeOverlay.icon} alt="" class="size-5 rounded-sm" />
+      <span class="min-w-0 flex-1 truncate">
+        <span class="text-foreground">{view.activeOverlay.name}</span>
+        <span class="text-muted-foreground">settings are on for this game</span>
+      </span>
+    </div>
+  {/if}
+
   {#if activeProfile}
     <label class="flex items-center gap-2 px-3 pb-2.5 text-muted-foreground">
       <span class="min-w-0 flex-1 leading-snug">

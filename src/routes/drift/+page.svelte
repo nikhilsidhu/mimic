@@ -54,6 +54,8 @@
     <p class="text-xs text-muted-foreground">
       {#if drift?.profile}
         Save to <span class="text-foreground">{drift.profile}</span> and your other accounts get it too.
+      {:else if drift?.champion}
+        This account is not on a profile, but it can be kept for {drift.champion.name}.
       {:else}
         This account is not on a profile, so there is nowhere to save it.
       {/if}
@@ -77,13 +79,31 @@
     <p class="text-xs text-destructive">{failure}</p>
   {/if}
 
-  <div class="flex gap-2">
-    {#if drift?.profile}
-      <Button class="flex-1" disabled={busy} onclick={() => choose("saveToProfile")}>Save to {drift.profile}</Button>
+  <!-- Where the changes go, then what else can be done with them. -->
+  <div class="flex flex-col gap-2">
+    {#if drift?.profile || drift?.champion}
+      <div class="flex gap-2">
+        {#if drift.profile}
+          <Button class="min-w-0 flex-1" disabled={busy} onclick={() => choose("saveToProfile")}>
+            <span class="truncate">Save to {drift.profile}</span>
+          </Button>
+        {/if}
+        {#if drift.champion}
+          <Button
+            class="min-w-0 flex-1"
+            variant={drift.profile ? "secondary" : "default"}
+            disabled={busy}
+            onclick={() => choose("saveToChampion")}
+            title="Only used when you play {drift.champion.name}"
+          >
+            <span class="truncate">Only for {drift.champion.name}</span>
+          </Button>
+        {/if}
+      </div>
     {/if}
-    <Button class={drift?.profile ? "" : "flex-1"} variant="secondary" disabled={busy} onclick={() => choose("keepHere")}>
-      Keep here only
-    </Button>
-    <Button variant="ghost" disabled={busy} onclick={() => choose("revert")}>Revert</Button>
+    <div class="flex gap-2">
+      <Button class="flex-1" variant="ghost" disabled={busy} onclick={() => choose("keepHere")}>Keep here only</Button>
+      <Button class="flex-1" variant="ghost" disabled={busy} onclick={() => choose("revert")}>Revert</Button>
+    </div>
   </div>
 </main>

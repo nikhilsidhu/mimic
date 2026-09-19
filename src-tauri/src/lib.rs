@@ -36,6 +36,7 @@ pub fn run() {
             commands::set_auto_apply,
             commands::rename_profile,
             commands::delete_profile,
+            commands::delete_overlay,
             commands::save_current,
             commands::undo_last,
             commands::drift,

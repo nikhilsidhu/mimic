@@ -76,11 +76,16 @@ pub struct Account {
     /// actually landed, not the profile, so a value the client refused never counts.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub baseline: Option<SettingsMap>,
+    /// The champion whose overlay is on top of the baseline right now. Set before a game
+    /// and cleared when the base is restored after it, so that a crash in between still
+    /// leads to a restore at the next login.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub overlay: Option<u32>,
 }
 
 impl Account {
     pub fn new(display_name: String) -> Self {
-        Account { display_name, profile_id: None, auto_apply: false, baseline: None }
+        Account { display_name, profile_id: None, auto_apply: false, baseline: None, overlay: None }
     }
 }
 

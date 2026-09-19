@@ -140,6 +140,62 @@
           {message.text}
         </p>
       {/if}
+
+      <header class="pt-2">
+        <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
+        <p class="text-sm text-muted-foreground">
+          Settings a champion uses instead of your profile's. They go on when you pick the champion and come off
+          after the game.
+        </p>
+      </header>
+
+      <section class="overflow-hidden rounded-lg border border-border">
+        {#each view?.overlays ?? [] as overlay, index (overlay.champion.id)}
+          {@const id = `champion-${overlay.champion.id}`}
+          <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
+            <img src={overlay.champion.icon} alt="" class="size-8 shrink-0 rounded-md" />
+            {#if editing?.id === id}
+              <p class="min-w-0 flex-1 truncate text-sm">
+                Delete <span class="font-medium">{overlay.champion.name}</span>'s settings?
+              </p>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={busy !== null}
+                onclick={() => run(id, () => api.deleteOverlay(overlay.champion.id))}
+              >
+                Delete
+              </Button>
+              <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
+            {:else}
+              <div class="min-w-0 flex-1">
+                <p class="flex items-center gap-2 truncate text-sm font-medium">
+                  {overlay.champion.name}
+                  {#if view?.activeOverlay?.id === overlay.champion.id}<Badge variant="secondary">on now</Badge>{/if}
+                </p>
+                <p class="truncate text-xs text-muted-foreground" title={overlay.settings.map(([key, value]) => `${key} = ${value}`).join("\n")}>
+                  {overlay.settings.map(([key, value]) => `${key.replace(/^evn?t/, "")} ${value || "none"}`).join(" · ")}
+                </p>
+              </div>
+              <Button
+                class="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                variant="ghost"
+                size="icon"
+                onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
+                aria-label="Delete"
+                title="Delete"
+              >
+                <Trash2 />
+              </Button>
+            {/if}
+          </div>
+        {:else}
+          <p class="px-4 py-10 text-center text-sm text-muted-foreground">
+            None yet. Play a champion, change settings in the game, and choose
+            <span class="text-foreground">Only for that champion</span> when mimic asks afterwards.
+          </p>
+        {/each}
+      </section>
     </main>
   </ScrollArea>
 </div>

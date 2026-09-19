@@ -24,6 +24,18 @@ pub struct View {
     /// The profile waiting for the next login, by name.
     pending: Option<String>,
     profiles: Vec<ProfileView>,
+    /// The champion whose settings are on top of this account's base right now.
+    active_overlay: Option<ChampionView>,
+    overlays: Vec<OverlayView>,
+}
+
+/// A champion's own settings.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OverlayView {
+    champion: ChampionView,
+    /// What it overrides, as `key` and `value`, for display.
+    settings: Vec<(String, String)>,
 }
 
 #[derive(Debug, Serialize)]
@@ -42,6 +54,17 @@ pub struct ChampionView {
     name: String,
     /// Absolute path of the cached icon, for the asset protocol.
     icon: String,
+}
+
+impl ChampionView {
+    fn of(engine: &Engine, id: u32) -> Self {
+        let champions = engine.champions();
+        ChampionView {
+            id,
+            name: champions.name(id).unwrap_or_else(|| format!("Champion {id}")),
+            icon: champions.icon_path(id).to_string_lossy().into_owned(),
+        }
+    }
 }
 
 /// Every champion, by name. Empty until a League client has been seen once.
@@ -84,7 +107,23 @@ pub fn view(engine: State<Engine>) -> View {
                 name: profile.name,
             })
             .collect(),
+        active_overlay: engine.active_overlay().map(|id| ChampionView::of(&engine, id)),
+        overlays: engine
+            .overlays()
+            .unwrap_or_default()
+            .into_iter()
+            .map(|overlay| OverlayView {
+                champion: ChampionView::of(&engine, overlay.champion_id),
+                settings: overlay.settings.iter().map(|(_, _, key, value)| (key.to_owned(), value.to_owned())).collect(),
+            })
+            .collect(),
     }
+}
+
+#[tauri::command]
+pub async fn delete_overlay(engine: State<'_, Engine>, champion: u32) -> Answer {
+    engine.delete_overlay(champion).await.map_err(|err| format!("Could not delete: {err}"))?;
+    Ok("Deleted".to_owned())
 }
 
 #[tauri::command]

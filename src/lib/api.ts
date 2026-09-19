@@ -8,7 +8,20 @@ export type ProfileView = {
   settings: number;
 };
 
-/** Everything the tray panel displays. */
+export type Champion = {
+  id: number;
+  name: string;
+  /** A URL the web view can load the cached icon from. */
+  icon: string;
+};
+
+/** A champion's own settings: what it overrides, as [key, value] pairs. */
+export type Overlay = {
+  champion: Champion;
+  settings: [string, string][];
+};
+
+/** Everything the tray panel and the manager display. */
 export type View = {
   /** The account's Riot ID, or why there is none. */
   status: string;
@@ -19,6 +32,9 @@ export type View = {
   /** The profile waiting for the next login, by name. */
   pending: string | null;
   profiles: ProfileView[];
+  /** The champion whose settings are on top of this account's base right now. */
+  activeOverlay: Champion | null;
+  overlays: Overlay[];
 };
 
 /** One setting that differs. `from` or `to` is null when the key exists on one side only. */
@@ -30,51 +46,56 @@ export type Change = {
   to: string | null;
 };
 
-/** Settings the user changed, and the name of the profile they could be saved to. */
+/** Settings the user changed, and where they could be saved. */
 export type Drift = {
   profile: string | null;
+  /** The champion they were made on, if known. */
+  champion: { id: number; name: string } | null;
   changes: Change[];
 };
 
-export type DriftChoice = "saveToProfile" | "revert" | "keepHere";
+export type DriftChoice = "saveToProfile" | "saveToChampion" | "revert" | "keepHere";
 
-export type Champion = {
-  id: number;
-  name: string;
-  /** A URL the web view can load the cached icon from. */
-  icon: string;
-};
+// The backend hands out file paths; the web view needs asset-protocol URLs.
+const withIconUrl = (champion: Champion): Champion => ({ ...champion, icon: convertFileSrc(champion.icon) });
+
+export async function getView(): Promise<View> {
+  const view = await invoke<View>("view");
+  return {
+    ...view,
+    activeOverlay: view.activeOverlay && withIconUrl(view.activeOverlay),
+    overlays: view.overlays.map((overlay) => ({ ...overlay, champion: withIconUrl(overlay.champion) })),
+  };
+}
 
 /** Every champion, by name. Empty until a League client has been seen once. */
 export async function getChampions(): Promise<Champion[]> {
-  const champions = await invoke<Champion[]>("champions");
-  return champions.map((champion) => ({ ...champion, icon: convertFileSrc(champion.icon) }));
+  return (await invoke<Champion[]>("champions")).map(withIconUrl);
 }
 
-export const getView = () => invoke<View>("view");
 export const getDrift = () => invoke<Drift | null>("drift");
-export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
 
-/** Calls `onChange` when the changed-settings prompt should read the drift again. */
-export function onDriftChanged(onChange: () => void): () => void {
-  const unlisten = listen("drift-changed", onChange);
+function on(event: string, onEvent: () => void): () => void {
+  const unlisten = listen(event, onEvent);
   return () => void unlisten.then((stop) => stop());
 }
 
 /** Calls `onChange` whenever the view may have changed. Returns a function that stops listening. */
-export function onViewChanged(onChange: () => void): () => void {
-  const unlisten = listen("view-changed", onChange);
-  return () => void unlisten.then((stop) => stop());
-}
+export const onViewChanged = (onChange: () => void) => on("view-changed", onChange);
+/** Calls `onChange` when the changed-settings prompt should read the drift again. */
+export const onDriftChanged = (onChange: () => void) => on("drift-changed", onChange);
 
 // Every action resolves to a sentence to show, and rejects with one on failure.
 export const applyProfile = (id: string) => invoke<string>("apply_profile", { id });
 export const renameProfile = (id: string, name: string) => invoke<string>("rename_profile", { id, name });
 export const deleteProfile = (id: string) => invoke<string>("delete_profile", { id });
-export const setAutoApply =(enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
-export const saveCurrent =(name: string) => invoke<string>("save_current", { name });
+export const deleteOverlay = (champion: number) => invoke<string>("delete_overlay", { champion });
+export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
+export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
 export const copyRiotId = () => invoke<string>("copy_riot_id");
+
+export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
 export const openManager = () => invoke<void>("open_manager");
 export const openLogs = () => invoke<void>("open_logs");
 /** Shows a sentence in the notice popup next to the tray. */
