@@ -16,16 +16,18 @@ fn is_local(file: &str, section: &str, key: &str) -> bool {
 /// alone is not something to apply, report or ask about. Such keys still belong in a
 /// profile and go along whenever something real is written.
 ///
-/// - Window layout the game rewrites on its own: where the chat, shop and death recap
-///   sit and how big the shop is.
+/// - Window layout the game rewrites on its own: where the chat and death recap sit.
+/// - The state of the shop window, which changes by using the shop rather than by
+///   changing a setting: its position and size, the tab last open, pinned panels,
+///   display mode. Seen after a normal game: `ItemShop/CurrentTab` going from 0 to 1.
 /// - The push-to-talk key, which the client's voice settings own: the client sets it
 ///   back by itself, at login and after games, whatever is written to it.
-pub fn is_volatile(file: &str, _section: &str, key: &str) -> bool {
+pub fn is_volatile(file: &str, section: &str, key: &str) -> bool {
     match file {
         "Game.cfg" => {
-            key.contains("NativeOffset")
-                || key.starts_with("ItemShopPrev")
-                || key.starts_with("ItemShopResize")
+            section == "ItemShop"
+                || key.starts_with("ItemShop")
+                || key.contains("NativeOffset")
                 || matches!(key, "ChatX" | "ChatY")
         }
         "Input.ini" => key == "evtPushToTalk",
@@ -249,6 +251,10 @@ mod tests {
         }
         assert!(is_volatile("Game.cfg", "Chat", "ChatX"));
         assert!(is_volatile("Game.cfg", "ItemShop", "NativeOffsetY"));
+        // Seen after a real game in which the user changed nothing.
+        assert!(is_volatile("Game.cfg", "ItemShop", "CurrentTab"));
+        assert!(is_volatile("Game.cfg", "ItemShop", "BootsPanelPinned"));
+        assert!(is_volatile("Game.cfg", "HUD", "ItemShopItemDisplayMode"));
         assert!(is_volatile("Input.ini", "GameEvents", "evtPushToTalk"));
         assert!(!is_volatile("Game.cfg", "HUD", "MinimapScale"));
         assert!(!is_volatile("Input.ini", "GameEvents", "evtCastSpell1"));
