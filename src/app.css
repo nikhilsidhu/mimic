@@ -1,12 +1,27 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn-svelte/tailwind.css";
-/* Geist Mono, Vercel's monospace made for UI labels. Two working weights (400 body, 500
-   emphasis) plus 600 for headings; hierarchy comes from colour, not from size or
-   thin weights. */
-@import "@fontsource/geist-mono/400.css";
-@import "@fontsource/geist-mono/500.css";
-@import "@fontsource/geist-mono/600.css";
+/* Ioskeley Mono: an Iosevka build, under the same open licence, shaped after Berkeley
+   Mono and at normal width. Two working weights (400 body, 500 emphasis) plus 600 for
+   headings; hierarchy comes from colour, not from size or thin weights. */
+@font-face {
+	font-family: "Ioskeley Mono";
+	font-weight: 400;
+	font-display: swap;
+	src: url("./lib/fonts/ioskeley-mono/IoskeleyMono-Regular.woff2") format("woff2");
+}
+@font-face {
+	font-family: "Ioskeley Mono";
+	font-weight: 500;
+	font-display: swap;
+	src: url("./lib/fonts/ioskeley-mono/IoskeleyMono-Medium.woff2") format("woff2");
+}
+@font-face {
+	font-family: "Ioskeley Mono";
+	font-weight: 600;
+	font-display: swap;
+	src: url("./lib/fonts/ioskeley-mono/IoskeleyMono-SemiBold.woff2") format("woff2");
+}
 
 @custom-variant dark (&:is(.dark *));
 
@@ -82,7 +97,9 @@
 }
 
 @theme inline {
-	--font-sans: 'Geist Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+	/* Berkeley Mono first: it is a commercial font that cannot ship with an open-source
+	   app, but whoever owns it and has it installed gets the real thing. */
+	--font-sans: 'Berkeley Mono', 'Ioskeley Mono', ui-monospace, 'Cascadia Mono', Consolas, monospace;
 	/* Third text colour: dates, counts, anything read only when looked for. A solid grey
 	   rather than white at reduced opacity, which reads as disabled. */
 	--color-faint: var(--faint);

@@ -31,7 +31,7 @@ export type View = {
   /** The connected account, or the one last seen while League is closed. */
   account: { name: string; icon: string; level: number } | null;
   phase: string | null;
-  /** What the account is up to, for a badge, e.g. "Swiftplay · In game". */
+  /** What the account is up to, for a badge, e.g. "Swiftplay - In game". */
   activity: string | null;
   /** Whether this account applies its profile by itself at login. */
   autoApply: boolean;
