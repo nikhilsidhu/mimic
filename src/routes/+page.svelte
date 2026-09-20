@@ -130,7 +130,7 @@
                   {view?.pending === profile.name ? "Applies at next login" : `${profile.settings} settings`}
                 </p>
               </div>
-              <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+              <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">
                 <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
                   <Pencil />
                 </Button>
@@ -230,7 +230,7 @@
                 </p>
               </div>
               <Button
-                class="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                class="text-faint transition-colors group-hover:text-muted-foreground"
                 variant="ghost"
                 size="icon"
                 onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}

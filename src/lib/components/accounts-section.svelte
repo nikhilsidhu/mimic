@@ -75,7 +75,7 @@
           />
         </label>
         <Button
-          class="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          class="text-faint transition-colors group-hover:text-muted-foreground"
           variant="ghost"
           size="icon"
           onclick={() => (forgetting = account.puuid)}
