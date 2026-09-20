@@ -81,11 +81,17 @@ pub struct Account {
     /// leads to a restore at the next login.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub overlay: Option<u32>,
+    /// Profile icon and level as last seen, so the account can be shown while League is
+    /// closed.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub icon: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<u32>,
 }
 
 impl Account {
     pub fn new(display_name: String) -> Self {
-        Account { display_name, profile_id: None, auto_apply: false, baseline: None, overlay: None }
+        Account { display_name, profile_id: None, auto_apply: false, baseline: None, overlay: None, icon: None, level: None }
     }
 }
 
@@ -98,6 +104,9 @@ pub struct State {
     /// A profile chosen while no account was logged in; applied at the next login.
     #[serde(default)]
     pub pending_apply: Option<String>,
+    /// The account last logged in, to show while League is closed.
+    #[serde(default)]
+    pub last_account: Option<String>,
 }
 
 /// The settings as they were right before mimic changed them.

@@ -94,7 +94,7 @@
               </form>
             {:else if editing?.id === profile.id && editing.mode === "delete"}
               <p class="min-w-0 flex-1 truncate text-sm">
-                Delete <span class="font-medium">{profile.name}</span>? Accounts on it keep their settings.
+                Delete <span class="font-medium">{profile.name}</span>?
               </p>
               <Button
                 variant="destructive"
@@ -109,7 +109,7 @@
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">{profile.name}</p>
                 <p class="text-xs text-muted-foreground">
-                  {view?.pending === profile.name ? "Will be applied at the next login" : `${profile.settings} settings`}
+                  {view?.pending === profile.name ? "Applies at next login" : `${profile.settings} settings`}
                 </p>
               </div>
               <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -138,7 +138,7 @@
           </div>
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
-            No profiles yet. Log into League, then save your current settings from the tray.
+            No profiles yet. Save one from the tray panel.
           </p>
         {/each}
       </section>
@@ -153,8 +153,7 @@
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
           <p class="text-sm text-muted-foreground">
-            Settings a champion uses instead of your profile's. They go on when you pick the champion and come off
-            after the game.
+            Overrides used only while you play that champion.
           </p>
         </div>
         {#if !adding}
@@ -215,8 +214,7 @@
           </div>
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
-            None yet. Use <span class="text-foreground">Add champion</span>, or change settings while playing a
-            champion and choose <span class="text-foreground">Only for that champion</span> when mimic asks afterwards.
+            None yet.
           </p>
         {/each}
       </section>

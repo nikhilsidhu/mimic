@@ -37,7 +37,7 @@
 <header class="pt-2">
   <h2 class="text-lg font-semibold tracking-tight">History</h2>
   <p class="text-sm text-muted-foreground">
-    mimic keeps the settings as they were before each change it makes. Restore puts an account back to one of them.
+    Settings as they were before each change.
   </p>
 </header>
 
@@ -63,6 +63,6 @@
       </Button>
     </div>
   {:else}
-    <p class="px-4 py-10 text-center text-sm text-muted-foreground">Nothing yet. A snapshot is taken before each apply.</p>
+    <p class="px-4 py-10 text-center text-sm text-muted-foreground">None yet.</p>
   {/each}
 </section>

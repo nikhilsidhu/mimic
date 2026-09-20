@@ -43,7 +43,7 @@
 <header class="pt-2">
   <h2 class="text-lg font-semibold tracking-tight">Accounts</h2>
   <p class="text-sm text-muted-foreground">
-    Each account remembers the profile it is on. With auto-apply on, logging into it brings it up to date.
+    Which profile each account is on.
   </p>
 </header>
 
@@ -52,7 +52,7 @@
     <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
       {#if forgetting === account.puuid}
         <p class="min-w-0 flex-1 truncate text-sm">
-          Forget <span class="font-medium">{account.name}</span>? Its settings in League are not touched.
+          Forget <span class="font-medium">{account.name}</span>?
         </p>
         <Button variant="destructive" size="sm" onclick={() => forget(account)}>Forget</Button>
         <Button variant="ghost" size="sm" onclick={() => (forgetting = null)}>Cancel</Button>
@@ -87,6 +87,6 @@
       {/if}
     </div>
   {:else}
-    <p class="px-4 py-10 text-center text-sm text-muted-foreground">No accounts yet. Log into League once.</p>
+    <p class="px-4 py-10 text-center text-sm text-muted-foreground">None yet.</p>
   {/each}
 </section>

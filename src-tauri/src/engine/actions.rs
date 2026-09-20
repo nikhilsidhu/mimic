@@ -189,6 +189,8 @@ impl Engine {
             let entry =
                 accounts.accounts.entry(account.puuid.clone()).or_insert_with(|| Account::new(riot_id.clone()));
             entry.display_name = riot_id.clone();
+            entry.icon = Some(account.profile_icon_id);
+            entry.level = Some(account.summoner_level);
             // mimic or the PC went down while a champion's settings were on. They come
             // off before anything else, or they would look like changes the user made.
             if entry.overlay.is_some() && !in_game(&phase) {
@@ -217,6 +219,8 @@ impl Engine {
             self.inner.store.save_accounts(&accounts)?;
 
             let mut state = self.inner.store.load_state()?;
+            state.last_account = Some(account.puuid.clone());
+            self.inner.store.save_state(&state)?;
             let queued = state.pending_apply.take();
             let id = match at_login(queued.as_deref(), mapped.as_deref(), auto_apply, drifted, &phase) {
                 AtLogin::Apply(id) => id.to_owned(),
@@ -480,6 +484,13 @@ impl Engine {
         let applied = self.write(&snapshot.settings, "before restoring a snapshot", None).await?;
         tracing::info!(taken = %snapshot.taken, changed = applied.changed, "restored snapshot");
         Ok(applied)
+    }
+
+    /// The account last logged in, with its record.
+    pub fn last_account(&self) -> Option<(String, Account)> {
+        let puuid = self.inner.store.load_state().ok()?.last_account?;
+        let account = self.inner.store.load_accounts().ok()?.accounts.remove(&puuid)?;
+        Some((puuid, account))
     }
 
     /// Every account mimic has seen, with its record, keyed by puuid.

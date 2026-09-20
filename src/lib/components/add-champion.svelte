@@ -83,7 +83,7 @@
           </button>
         {:else}
           <p class="col-span-full px-2 py-8 text-center text-sm text-muted-foreground">
-            {champions.length ? "No champion by that name." : "Open League once so mimic can learn the champions."}
+            {champions.length ? "No match." : "Open League once to load champions."}
           </p>
         {/each}
       </div>
@@ -93,7 +93,7 @@
       <img src={champion.icon} alt="" class="size-8 shrink-0 rounded-md" />
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm font-medium">{champion.name}</p>
-        <p class="text-xs text-muted-foreground">Where should its settings come from?</p>
+        <p class="text-xs text-muted-foreground">Take its settings from:</p>
       </div>
       <Button variant="ghost" size="sm" onclick={() => (champion = null)}>Back</Button>
       <Button variant="ghost" size="sm" onclick={oncancel}>Cancel</Button>
@@ -101,7 +101,7 @@
 
     {#if unavailable}
       <p class="px-4 py-6 text-sm text-muted-foreground">
-        A champion's settings are saved as differences from an account's base, so an account has to be logged in.
+        Log into League first.
         <span class="text-destructive">{unavailable}</span>
       </p>
     {:else}
@@ -114,17 +114,15 @@
         >
           <div class="min-w-0 flex-1">
             {#if source.profile === null}
-              <p class="text-sm font-medium">What I changed just now</p>
+              <p class="text-sm font-medium">What changed just now</p>
               <p class="text-xs text-muted-foreground">
                 {source.settings
-                  ? `${count(source.settings)} differ from this account's base. They move to ${champion.name} and come off the account.`
-                  : "Nothing differs from this account's base. Change settings in a game first, then come back."}
+                  ? `${count(source.settings)}, moved to ${champion.name}`
+                  : "Nothing has changed"}
               </p>
             {:else}
-              <p class="truncate text-sm font-medium">From the profile {source.name}</p>
-              <p class="text-xs text-muted-foreground">
-                {count(source.settings)} differ from this account's base. The account is not touched.
-              </p>
+              <p class="truncate text-sm font-medium">From {source.name}</p>
+              <p class="text-xs text-muted-foreground">{count(source.settings)} that differ from your base</p>
             {/if}
           </div>
           <ChevronRight class="size-4 shrink-0 text-muted-foreground" />

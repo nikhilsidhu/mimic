@@ -98,6 +98,17 @@ pub fn champions(engine: State<Engine>) -> Vec<ChampionView> {
         .collect()
 }
 
+/// The connected account, or else the one last seen, so the header keeps its face while
+/// League is closed.
+fn account_view(engine: &Engine, status: &crate::engine::Status) -> Option<AccountView> {
+    let icon_path = |id: u32| engine.champions().profile_icon_path(id).to_string_lossy().into_owned();
+    if let Some(account) = status.account() {
+        return Some(AccountView { icon: icon_path(account.profile_icon_id), level: account.summoner_level });
+    }
+    let (_, last) = engine.last_account()?;
+    Some(AccountView { icon: icon_path(last.icon?), level: last.level.unwrap_or(0) })
+}
+
 type Answer = Result<String, String>;
 
 #[tauri::command]
@@ -111,10 +122,7 @@ pub fn view(engine: State<Engine>) -> View {
     View {
         status: status.label(),
         connected: status.riot_id().is_some(),
-        account: status.account().map(|account| AccountView {
-            icon: engine.champions().profile_icon_path(account.profile_icon_id).to_string_lossy().into_owned(),
-            level: account.summoner_level,
-        }),
+        account: account_view(&engine, &status),
         phase: status.phase().map(str::to_owned),
         activity: status.activity(),
         auto_apply: engine.auto_apply(),
