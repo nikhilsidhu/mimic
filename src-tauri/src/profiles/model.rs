@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
-use crate::settings::SettingsMap;
+use crate::settings::{Change, SettingsMap};
 
 /// Bumped when a file's shape changes in a way older builds cannot read.
 pub const SCHEMA_VERSION: u32 = 1;
@@ -119,6 +119,10 @@ pub struct Snapshot {
     pub reason: String,
     pub puuid: Option<String>,
     pub settings: SettingsMap,
+    /// What the change this snapshot was taken for ended up altering, setting by setting.
+    /// Together the snapshots are the change log.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub changes: Vec<Change>,
 }
 
 impl Snapshot {
@@ -129,6 +133,7 @@ impl Snapshot {
             reason: reason.to_owned(),
             puuid: puuid.map(str::to_owned),
             settings,
+            changes: Vec::new(),
         }
     }
 }

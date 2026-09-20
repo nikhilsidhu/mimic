@@ -2,7 +2,7 @@
 <script lang="ts">
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
-  import ArrowRight from "@lucide/svelte/icons/arrow-right";
+  import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as api from "$lib/api";
@@ -39,10 +39,6 @@
     }
   }
 
-  /** `[<Unbound>]` and the empty string both mean no key. */
-  const shown = (value: string | null) => (!value || value === "[<Unbound>]" ? "none" : value);
-  /** `evtCastSpell1` reads better as `CastSpell1`. */
-  const label = (change: api.Change) => change.key.replace(/^evn?t/, "");
 </script>
 
 <main class="flex h-screen flex-col gap-3 border border-border bg-popover p-4 text-popover-foreground">
@@ -70,16 +66,7 @@
   </div>
 
   <ScrollArea class="min-h-0 flex-1 rounded-md border border-border">
-    <ul class="divide-y divide-border text-xs">
-      {#each drift?.changes ?? [] as change (change.file + change.section + change.key)}
-        <li class="flex items-center gap-2 px-2.5 py-1.5">
-          <span class="min-w-0 flex-1 truncate" title="{change.section} / {change.key}">{label(change)}</span>
-          <span class="shrink-0 text-muted-foreground">{shown(change.from)}</span>
-          <ArrowRight class="size-3 shrink-0 text-muted-foreground" />
-          <span class="shrink-0 font-medium">{shown(change.to)}</span>
-        </li>
-      {/each}
-    </ul>
+    <ChangeList changes={drift?.changes ?? []} />
   </ScrollArea>
 
   {#if failure}

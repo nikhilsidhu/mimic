@@ -1,6 +1,8 @@
 <!-- The settings as they were before each apply, newest first, to go back to. -->
 <script lang="ts">
   import { onMount } from "svelte";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as api from "$lib/api";
 
@@ -8,6 +10,8 @@
 
   let snapshots = $state<api.SnapshotView[]>([]);
   let busy = $state<string | null>(null);
+  /** The entry whose changes are shown, by id. */
+  let open = $state<string | null>(null);
 
   const refresh = async () => (snapshots = await api.getSnapshots());
 
@@ -37,21 +41,30 @@
 <header class="pt-2">
   <h2 class="text-lg font-semibold tracking-tight">History</h2>
   <p class="text-sm text-muted-foreground">
-    Settings as they were before each change.
+    Every change mimic made, and what it altered.
   </p>
 </header>
 
 <section class="overflow-hidden rounded-lg border border-border">
   {#each snapshots as snapshot, index (snapshot.id)}
     <div class="flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
-      <div class="min-w-0 flex-1">
-        <p class="truncate text-sm font-medium">{reason(snapshot.reason)}</p>
-        <p class="truncate text-xs text-faint">
-          {when.format(new Date(snapshot.taken))}
-          {#if snapshot.account}· {snapshot.account}{/if}
-          · {snapshot.settings} settings
-        </p>
-      </div>
+      <button
+        class="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
+        disabled={snapshot.changes.length === 0}
+        onclick={() => (open = open === snapshot.id ? null : snapshot.id)}
+      >
+        <ChevronRight
+          class="size-3.5 shrink-0 text-faint transition-transform {open === snapshot.id ? 'rotate-90' : ''} {snapshot.changes.length ? '' : 'invisible'}"
+        />
+        <div class="min-w-0 flex-1">
+          <p class="truncate text-sm font-medium">{reason(snapshot.reason)}</p>
+          <p class="truncate text-xs text-faint">
+            {when.format(new Date(snapshot.taken))}
+            {#if snapshot.account}· {snapshot.account}{/if}
+            {#if snapshot.changes.length}· {snapshot.changes.length} changed{/if}
+          </p>
+        </div>
+      </button>
       <Button
         variant="outline"
         size="sm"
@@ -62,6 +75,11 @@
         {busy === snapshot.id ? "Restoring…" : "Restore"}
       </Button>
     </div>
+    {#if open === snapshot.id}
+      <div class="border-t border-border bg-muted/30 px-4 py-1">
+        <ChangeList changes={snapshot.changes} />
+      </div>
+    {/if}
   {:else}
     <p class="px-4 py-10 text-center text-sm text-muted-foreground">None yet.</p>
   {/each}
