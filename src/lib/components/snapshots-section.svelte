@@ -10,6 +10,8 @@
 
   let snapshots = $state<api.SnapshotView[]>([]);
   let busy = $state<string | null>(null);
+  /** History is reference material: folded away until asked for. */
+  let expanded = $state(false);
   /** The entry whose changes are shown, by id. */
   let open = $state<string | null>(null);
 
@@ -38,13 +40,20 @@
   const reason = (text: string) => text.replace(/'/g, "").replace(/^\w/, (c) => c.toUpperCase());
 </script>
 
-<header class="pt-2">
-  <h2 class="text-lg font-semibold tracking-tight">History</h2>
-  <p class="text-sm text-muted-foreground">
-    Every change mimic made, and what it altered.
-  </p>
-</header>
+<button
+  class="group flex w-full items-center gap-2 pt-2 text-left"
+  aria-expanded={expanded}
+  onclick={() => (expanded = !expanded)}
+>
+  <ChevronRight class="size-4 shrink-0 text-faint transition-transform {expanded ? 'rotate-90' : ''}" />
+  <div class="min-w-0 flex-1">
+    <h2 class="text-lg font-semibold tracking-tight">History</h2>
+    <p class="text-sm text-muted-foreground">Every change mimic made, and what it altered.</p>
+  </div>
+  <span class="text-xs text-faint">{snapshots.length} {snapshots.length === 1 ? "entry" : "entries"}</span>
+</button>
 
+{#if expanded}
 <section class="overflow-hidden rounded-lg border border-border">
   {#each snapshots as snapshot, index (snapshot.id)}
     <div class="flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
@@ -84,3 +93,4 @@
     <p class="px-4 py-10 text-center text-sm text-muted-foreground">None yet.</p>
   {/each}
 </section>
+{/if}

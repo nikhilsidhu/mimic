@@ -176,6 +176,8 @@
         </p>
       {/if}
 
+      <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
+
       <header class="flex items-end justify-between gap-4 pt-2">
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
@@ -247,8 +249,6 @@
           </p>
         {/each}
       </section>
-
-      <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
       <SnapshotsSection onmessage={(text, failed) => (message = { text, failed })} />
     </main>
   </ScrollArea>
