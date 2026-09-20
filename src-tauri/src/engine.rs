@@ -11,7 +11,7 @@ use futures_util::StreamExt;
 use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
-pub use actions::{ActionError, Announcement, Applied, ChampionRef, Drift, DriftChoice, Outcome};
+pub use actions::{snapshot_id, ActionError, Announcement, Applied, ChampionRef, Drift, DriftChoice, Outcome};
 pub use overlays::OverlaySource;
 
 use crate::champions::Champions;

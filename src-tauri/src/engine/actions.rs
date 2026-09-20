@@ -18,6 +18,10 @@ pub enum ActionError {
     NoSuchProfile(String),
     #[error("there is no snapshot to restore")]
     NoSnapshot,
+    #[error("that snapshot belongs to another account")]
+    OtherAccount,
+    #[error("mimic has not seen that account")]
+    NoSuchAccount,
     #[error("this account is not on a profile")]
     NoProfile,
     #[error("there is no champion to save this for")]
@@ -453,6 +457,56 @@ impl Engine {
         Ok(applied)
     }
 
+    /// Every snapshot, newest first.
+    pub fn snapshots(&self) -> Result<Vec<Snapshot>> {
+        Ok(self.inner.store.list_snapshots()?)
+    }
+
+    /// Puts back one particular snapshot, named by when it was taken (unix nanoseconds,
+    /// as the UI got it). It has to belong to the logged-in account.
+    pub async fn restore_snapshot(&self, taken: &str) -> Result<Applied> {
+        let _guard = self.inner.action_lock.lock().await;
+        let puuid = self.connection()?.puuid;
+        let snapshot = self
+            .inner
+            .store
+            .list_snapshots()?
+            .into_iter()
+            .find(|snapshot| snapshot_id(snapshot) == taken)
+            .ok_or(ActionError::NoSnapshot)?;
+        if snapshot.puuid.as_deref() != Some(puuid.as_str()) {
+            return Err(ActionError::OtherAccount);
+        }
+        let applied = self.write(&snapshot.settings, "before restoring a snapshot", None).await?;
+        tracing::info!(taken = %snapshot.taken, changed = applied.changed, "restored snapshot");
+        Ok(applied)
+    }
+
+    /// Every account mimic has seen, with its record, keyed by puuid.
+    pub fn accounts(&self) -> Result<Vec<(String, Account)>> {
+        Ok(self.inner.store.load_accounts()?.accounts.into_iter().collect())
+    }
+
+    pub fn set_account_auto_apply(&self, puuid: &str, enabled: bool) -> Result<()> {
+        let mut accounts = self.inner.store.load_accounts()?;
+        let account = accounts.accounts.get_mut(puuid).ok_or(ActionError::NoSuchAccount)?;
+        account.auto_apply = enabled;
+        self.inner.store.save_accounts(&accounts)?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
+    /// Forgets an account: its profile link, auto-apply and baseline. Its settings on
+    /// Riot's side are not touched. If it logs in again it starts fresh.
+    pub fn forget_account(&self, puuid: &str) -> Result<()> {
+        let mut accounts = self.inner.store.load_accounts()?;
+        accounts.accounts.remove(puuid).ok_or(ActionError::NoSuchAccount)?;
+        self.inner.store.save_accounts(&accounts)?;
+        tracing::info!(puuid = %puuid.chars().take(8).collect::<String>(), "forgot account");
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
     pub async fn rename_profile(&self, id: &str, name: &str) -> Result<()> {
         let _guard = self.inner.action_lock.lock().await;
         let mut profile =
@@ -625,6 +679,11 @@ fn at_login<'a>(
         return AtLogin::GameUnderWay;
     }
     wanted
+}
+
+/// How the UI refers to a snapshot: when it was taken, in unix nanoseconds.
+pub fn snapshot_id(snapshot: &Snapshot) -> String {
+    snapshot.taken.unix_timestamp_nanos().to_string()
 }
 
 /// Phases in which the game is starting or running.

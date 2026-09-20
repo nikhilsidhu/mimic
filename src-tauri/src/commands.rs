@@ -5,7 +5,7 @@ use tauri::{AppHandle, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_opener::OpenerExt;
 
-use crate::engine::{Drift, DriftChoice, Engine, OverlaySource};
+use crate::engine::{self, Drift, DriftChoice, Engine, OverlaySource};
 use crate::{platform, tray};
 
 /// Longest profile name the UI may create.
@@ -139,6 +139,97 @@ pub fn view(engine: State<Engine>) -> View {
             })
             .collect(),
     }
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotView {
+    /// Opaque id for `restore_snapshot`.
+    id: String,
+    /// When it was taken, RFC 3339.
+    taken: String,
+    reason: String,
+    /// The account it was taken on, as `gameName#tagLine` if known.
+    account: Option<String>,
+    /// Whether it belongs to the logged-in account and can be restored right now.
+    restorable: bool,
+    settings: usize,
+}
+
+/// Every snapshot, newest first.
+#[tauri::command]
+pub fn snapshots(engine: State<Engine>) -> Vec<SnapshotView> {
+    let accounts = engine.accounts().unwrap_or_default();
+    let connected = engine.status.borrow().account().map(|account| account.puuid.clone());
+    engine
+        .snapshots()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|snapshot| SnapshotView {
+            id: engine::snapshot_id(&snapshot),
+            taken: snapshot.taken.format(&time::format_description::well_known::Rfc3339).unwrap_or_default(),
+            account: snapshot.puuid.as_ref().and_then(|puuid| {
+                accounts.iter().find(|(id, _)| id == puuid).map(|(_, account)| account.display_name.clone())
+            }),
+            restorable: snapshot.puuid.is_some() && snapshot.puuid == connected,
+            settings: snapshot.settings.len(),
+            reason: snapshot.reason,
+        })
+        .collect()
+}
+
+#[tauri::command]
+pub async fn restore_snapshot(engine: State<'_, Engine>, id: String) -> Answer {
+    let applied = engine.restore_snapshot(&id).await.map_err(|err| format!("Could not restore: {err}"))?;
+    Ok(applied.describe("Restored"))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountRow {
+    puuid: String,
+    name: String,
+    /// The profile it is on, by name.
+    profile: Option<String>,
+    auto_apply: bool,
+    /// Whether this is the account logged in right now.
+    connected: bool,
+}
+
+/// Every account mimic has seen, the connected one first.
+#[tauri::command]
+pub fn accounts(engine: State<Engine>) -> Vec<AccountRow> {
+    let connected = engine.status.borrow().account().map(|account| account.puuid.clone());
+    let profiles = engine.profiles().unwrap_or_default();
+    let mut rows: Vec<AccountRow> = engine
+        .accounts()
+        .unwrap_or_default()
+        .into_iter()
+        .map(|(puuid, account)| AccountRow {
+            connected: Some(&puuid) == connected.as_ref(),
+            profile: account
+                .profile_id
+                .as_ref()
+                .and_then(|id| profiles.iter().find(|profile| &profile.id == id))
+                .map(|profile| profile.name.clone()),
+            puuid,
+            name: account.display_name,
+            auto_apply: account.auto_apply,
+        })
+        .collect();
+    rows.sort_by_key(|row| (!row.connected, row.name.to_lowercase()));
+    rows
+}
+
+#[tauri::command]
+pub fn set_account_auto_apply(engine: State<Engine>, puuid: String, enabled: bool) -> Result<(), String> {
+    engine.set_account_auto_apply(&puuid, enabled).map_err(|err| err.to_string())
+}
+
+#[tauri::command]
+pub fn forget_account(engine: State<Engine>, puuid: String) -> Answer {
+    engine.forget_account(&puuid).map_err(|err| format!("Could not forget: {err}"))?;
+    Ok("Forgotten".to_owned())
 }
 
 /// Where a champion's settings could be taken from right now.

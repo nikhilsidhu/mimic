@@ -123,3 +123,35 @@ export const notify = (message: string) => invoke<void>("notify", { message });
 /** Closes the tray panel. */
 export const dismiss = () => invoke<void>("dismiss");
 export const quit = () => invoke<void>("quit");
+
+export type SnapshotView = {
+  /** Opaque id for `restoreSnapshot`. */
+  id: string;
+  /** When it was taken, RFC 3339. */
+  taken: string;
+  reason: string;
+  /** The account it was taken on, as `gameName#tagLine` if known. */
+  account: string | null;
+  /** Whether it belongs to the logged-in account and can be restored right now. */
+  restorable: boolean;
+  settings: number;
+};
+
+export type AccountRow = {
+  puuid: string;
+  name: string;
+  /** The profile it is on, by name. */
+  profile: string | null;
+  autoApply: boolean;
+  /** Whether this is the account logged in right now. */
+  connected: boolean;
+};
+
+/** Every snapshot, newest first. */
+export const getSnapshots = () => invoke<SnapshotView[]>("snapshots");
+export const restoreSnapshot = (id: string) => invoke<string>("restore_snapshot", { id });
+/** Every account mimic has seen, the connected one first. */
+export const getAccounts = () => invoke<AccountRow[]>("accounts");
+export const setAccountAutoApply = (puuid: string, enabled: boolean) =>
+  invoke<void>("set_account_auto_apply", { puuid, enabled });
+export const forgetAccount = (puuid: string) => invoke<string>("forget_account", { puuid });

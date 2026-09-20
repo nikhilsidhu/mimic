@@ -8,8 +8,10 @@
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
+  import AccountsSection from "$lib/components/accounts-section.svelte";
   import AddChampion from "$lib/components/add-champion.svelte";
   import Avatar from "$lib/components/avatar.svelte";
+  import SnapshotsSection from "$lib/components/snapshots-section.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
 
@@ -218,6 +220,9 @@
           </p>
         {/each}
       </section>
+
+      <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
+      <SnapshotsSection onmessage={(text, failed) => (message = { text, failed })} />
     </main>
   </ScrollArea>
 </div>
