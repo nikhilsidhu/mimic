@@ -1,9 +1,11 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import Check from "@lucide/svelte/icons/check";
+  import Download from "@lucide/svelte/icons/download";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
+  import Upload from "@lucide/svelte/icons/upload";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -11,9 +13,11 @@
   import AccountsSection from "$lib/components/accounts-section.svelte";
   import AddChampion from "$lib/components/add-champion.svelte";
   import Avatar from "$lib/components/avatar.svelte";
+  import Bind from "$lib/components/bind.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
+  import { settingLabel } from "$lib/binds";
 
   let view = $state<api.View | null>(null);
   /** The profile an action is running on. One action at a time. */
@@ -52,6 +56,17 @@
     renameInput?.select();
   }
 
+  /** Export and import open a file dialog; cancelling it is not worth a message. */
+  async function transfer(action: () => Promise<string | null>) {
+    try {
+      const said = await action();
+      if (said) message = { text: said, failed: false };
+    } catch (err) {
+      message = { text: String(err), failed: true };
+    }
+    refresh();
+  }
+
   function submitRename(event: SubmitEvent) {
     event.preventDefault();
     if (editing) run(editing.id, () => api.renameProfile(editing!.id, editing!.name));
@@ -74,6 +89,7 @@
         {:else if view && !view.connected}
           <Badge variant="outline">{view.status}</Badge>
         {/if}
+        <Button variant="outline" size="sm" onclick={() => transfer(api.importProfile)}><Upload />Import</Button>
       </header>
 
       <section class="overflow-hidden rounded-lg border border-border">
@@ -117,6 +133,15 @@
               <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
                 <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
                   <Pencil />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onclick={() => transfer(() => api.exportProfile(profile.id))}
+                  aria-label="Export"
+                  title="Export to a file"
+                >
+                  <Download />
                 </Button>
                 <Button
                   variant="ghost"
@@ -198,8 +223,10 @@
                   {overlay.champion.name}
                   {#if view?.activeOverlay?.id === overlay.champion.id}<Badge variant="secondary">on now</Badge>{/if}
                 </p>
-                <p class="truncate text-xs text-muted-foreground" title={overlay.settings.map(([key, value]) => `${key} = ${value}`).join("\n")}>
-                  {overlay.settings.map(([key, value]) => `${key.replace(/^evn?t/, "")} ${value || "none"}`).join(" · ")}
+                <p class="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-muted-foreground">
+                  {#each overlay.settings as [key, value] (key)}
+                    <span class="inline-flex items-center gap-1.5">{settingLabel(key)} <Bind {value} /></span>
+                  {/each}
                 </p>
               </div>
               <Button

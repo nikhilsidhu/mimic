@@ -106,6 +106,10 @@ export const onDriftChanged = (onChange: () => void) => on("drift-changed", onCh
 // Every action resolves to a sentence to show, and rejects with one on failure.
 export const applyProfile = (id: string) => invoke<string>("apply_profile", { id });
 export const renameProfile = (id: string, name: string) => invoke<string>("rename_profile", { id, name });
+/** Asks where to save the profile. Resolves to null when the dialog is cancelled. */
+export const exportProfile = (id: string) => invoke<string | null>("export_profile", { id });
+/** Asks for an exported profile. Resolves to null when the dialog is cancelled. */
+export const importProfile = () => invoke<string | null>("import_profile");
 export const deleteProfile = (id: string) => invoke<string>("delete_profile", { id });
 export const saveOverlay = (champion: number, profile: string | null) =>
   invoke<string>("save_overlay", { champion, profile });
@@ -135,6 +139,8 @@ export type SnapshotView = {
   /** Whether it belongs to the logged-in account and can be restored right now. */
   restorable: boolean;
   settings: number;
+  /** What the change it was taken for altered, setting by setting. */
+  changes: Change[];
 };
 
 export type AccountRow = {

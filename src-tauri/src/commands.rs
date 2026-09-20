@@ -3,6 +3,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::engine::{self, Drift, DriftChoice, Engine, OverlaySource};
@@ -155,6 +156,32 @@ pub fn view(engine: State<Engine>) -> View {
     }
 }
 
+/// Asks where to save a profile and writes it there. `Ok(None)` when the user cancels.
+#[tauri::command]
+pub async fn export_profile(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<Option<String>, String> {
+    let (file_name, json) = engine.export_profile(&id).map_err(|err| format!("Could not export: {err}"))?;
+    let chosen = app
+        .dialog()
+        .file()
+        .set_title("Export profile")
+        .set_file_name(&file_name)
+        .add_filter("mimic profile", &["json"])
+        .blocking_save_file();
+    let Some(path) = chosen.and_then(|path| path.into_path().ok()) else { return Ok(None) };
+    std::fs::write(&path, json).map_err(|err| format!("Could not write {}: {err}", path.display()))?;
+    Ok(Some(format!("Exported to {}", path.display())))
+}
+
+/// Asks for an exported profile and adds it. `Ok(None)` when the user cancels.
+#[tauri::command]
+pub async fn import_profile(app: AppHandle, engine: State<'_, Engine>) -> Result<Option<String>, String> {
+    let chosen = app.dialog().file().set_title("Import profile").add_filter("mimic profile", &["json"]).blocking_pick_file();
+    let Some(path) = chosen.and_then(|path| path.into_path().ok()) else { return Ok(None) };
+    let bytes = std::fs::read(&path).map_err(|err| format!("Could not read {}: {err}", path.display()))?;
+    let profile = engine.import_profile(&bytes).await.map_err(|err| format!("Could not import: {err}"))?;
+    Ok(Some(format!("Imported '{}' with {} settings", profile.name, profile.settings.len())))
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SnapshotView {
@@ -168,6 +195,8 @@ pub struct SnapshotView {
     /// Whether it belongs to the logged-in account and can be restored right now.
     restorable: bool,
     settings: usize,
+    /// What the change it was taken for altered, setting by setting.
+    changes: Vec<crate::settings::Change>,
 }
 
 /// Every snapshot, newest first.
@@ -187,6 +216,7 @@ pub fn snapshots(engine: State<Engine>) -> Vec<SnapshotView> {
             }),
             restorable: snapshot.puuid.is_some() && snapshot.puuid == connected,
             settings: snapshot.settings.len(),
+            changes: snapshot.changes,
             reason: snapshot.reason,
         })
         .collect()

@@ -26,6 +26,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(tray::Notice::default())
         .manage(tray::PanelHidden::default())
         .invoke_handler(tauri::generate_handler![
@@ -36,6 +37,8 @@ pub fn run() {
             commands::set_auto_apply,
             commands::rename_profile,
             commands::delete_profile,
+            commands::export_profile,
+            commands::import_profile,
             commands::delete_overlay,
             commands::overlay_sources,
             commands::save_overlay,

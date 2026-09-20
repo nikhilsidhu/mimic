@@ -30,6 +30,8 @@ pub enum ActionError {
     NoBaseline,
     #[error("nothing on this account differs from its base, so there is nothing to keep")]
     NothingChanged,
+    #[error("that file cannot be imported: {0}")]
+    InvalidImport(String),
     #[error("could not read League's settings file: {0}")]
     ReadSettings(String),
     #[error(transparent)]
@@ -159,7 +161,7 @@ impl Engine {
     }
 
     async fn apply_now(&self, profile: &Profile) -> Result<Applied> {
-        let reason = format!("before applying '{}'", profile.name);
+        let reason = format!("applied '{}'", profile.name);
         let applied = self.write(&profile.settings, &reason, Some(&profile.id)).await?;
         tracing::info!(id = %profile.id, name = %profile.name, changed = applied.changed, "applied profile");
         Ok(applied)
@@ -394,7 +396,13 @@ impl Engine {
         // now, so this is a write whenever the two differ; when the changes were kept
         // and no overlay is on, they do not.
         let discards = matches!(choice, DriftChoice::SaveToChampion | DriftChoice::Revert);
-        let (_, after) = self.write_settings(&base, discards.then_some("before reverting changes")).await?;
+        // Keeping changes writes nothing, so nothing else would record them in the log.
+        if !discards && !changes.is_empty() {
+            let mut record = Snapshot::new(&said, Some(&connection.puuid), expected.clone());
+            record.changes = changes.clone();
+            self.inner.store.save_snapshot(&record, KEEP_SNAPSHOTS)?;
+        }
+        let (_, after) = self.write_settings(&base, discards.then_some(said.as_str())).await?;
         self.update_account(|account| {
             account.baseline = Some(after);
             account.overlay = None;
@@ -456,7 +464,7 @@ impl Engine {
             .into_iter()
             .find(|snapshot| snapshot.puuid.as_deref() == Some(puuid.as_str()))
             .ok_or(ActionError::NoSnapshot)?;
-        let applied = self.write(&snapshot.settings, "before restoring a snapshot", None).await?;
+        let applied = self.write(&snapshot.settings, "restored an earlier state", None).await?;
         tracing::info!(taken = %snapshot.taken, changed = applied.changed, "restored snapshot");
         Ok(applied)
     }
@@ -481,7 +489,7 @@ impl Engine {
         if snapshot.puuid.as_deref() != Some(puuid.as_str()) {
             return Err(ActionError::OtherAccount);
         }
-        let applied = self.write(&snapshot.settings, "before restoring a snapshot", None).await?;
+        let applied = self.write(&snapshot.settings, "restored an earlier state", None).await?;
         tracing::info!(taken = %snapshot.taken, changed = applied.changed, "restored snapshot");
         Ok(applied)
     }
@@ -591,10 +599,16 @@ impl Engine {
             return Ok((Applied::default(), before));
         }
 
-        if let Some(reason) = snapshot {
-            let snapshot = Snapshot::new(reason, Some(&connection.puuid), before.clone());
-            self.inner.store.save_snapshot(&snapshot, KEEP_SNAPSHOTS)?;
-        }
+        // Saved before anything is written, for safety, and once more afterwards with what
+        // the write ended up altering, which is what the change log shows.
+        let mut record = match snapshot {
+            Some(reason) => {
+                let record = Snapshot::new(reason, Some(&connection.puuid), before.clone());
+                self.inner.store.save_snapshot(&record, KEEP_SNAPSHOTS)?;
+                Some(record)
+            }
+            None => None,
+        };
 
         // The client can veto a value (a key it wants for something else, say), so what
         // actually landed is read back, and whatever is still off gets one more try.
@@ -617,6 +631,10 @@ impl Engine {
             .collect();
         if !stuck.is_empty() {
             tracing::warn!(?stuck, "the client did not accept some settings");
+        }
+        if let Some(record) = &mut record {
+            record.changes = user_changes(&record.settings, &after);
+            self.inner.store.save_snapshot(record, KEEP_SNAPSHOTS)?;
         }
         // Saturating: resolving a key conflict can make the client unbind a key that was
         // not part of `changes`, so more can be stuck than was asked for.

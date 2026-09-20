@@ -3,6 +3,7 @@
 
 mod actions;
 mod overlays;
+mod transfer;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
