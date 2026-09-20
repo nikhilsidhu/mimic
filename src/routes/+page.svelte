@@ -66,7 +66,7 @@
       <header class="flex items-center gap-4">
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
-          <h1 class="text-lg font-semibold tracking-tight">Profiles</h1>
+          <h1 class="text-lg font-bold tracking-tight">Profiles</h1>
           <p class="truncate text-sm text-muted-foreground">{view?.account?.name ?? view?.status ?? "Starting…"}</p>
         </div>
         {#if view?.activity}
@@ -153,7 +153,7 @@
 
       <header class="flex items-end justify-between gap-4 pt-2">
         <div>
-          <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
+          <h2 class="text-lg font-bold tracking-tight">Champions</h2>
           <p class="text-sm text-muted-foreground">
             Overrides used only while you play that champion.
           </p>

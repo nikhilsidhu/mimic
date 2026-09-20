@@ -35,7 +35,7 @@
 </script>
 
 <header class="pt-2">
-  <h2 class="text-lg font-semibold tracking-tight">History</h2>
+  <h2 class="text-lg font-bold tracking-tight">History</h2>
   <p class="text-sm text-muted-foreground">
     Settings as they were before each change.
   </p>
