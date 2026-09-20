@@ -325,7 +325,9 @@ pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> An
 
 #[tauri::command]
 pub fn copy_riot_id(app: AppHandle, engine: State<Engine>) -> Answer {
-    let riot_id = engine.status.borrow().riot_id().ok_or("No account is connected")?;
+    // The account shown: the connected one, or the last seen while League is closed.
+    let status = engine.status.borrow().clone();
+    let riot_id = account_view(&engine, &status).map(|account| account.name).ok_or("No account to copy")?;
     app.clipboard().write_text(riot_id.clone()).map_err(|err| format!("Could not copy: {err}"))?;
     Ok(format!("Copied {riot_id}"))
 }

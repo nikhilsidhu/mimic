@@ -104,10 +104,10 @@
         {view?.account?.name ?? view?.status ?? "Starting…"}
       </p>
     </div>
-    {#if view?.connected}
-      {#if view.activity}
-        <Badge variant="secondary">{view.activity}</Badge>
-      {/if}
+    {#if view?.activity}
+      <Badge variant="secondary">{view.activity}</Badge>
+    {/if}
+    {#if view?.account}
       <Button variant="ghost" size="icon" onclick={copy} aria-label="Copy Riot ID" title="Copy Riot ID">
         {#if copied}<Check class="text-emerald-500" />{:else}<Copy />{/if}
       </Button>
