@@ -36,6 +36,8 @@ pub struct View {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountView {
+    /// `gameName#tagLine`.
+    name: String,
     /// Absolute path of the cached profile icon, for the asset protocol.
     icon: String,
     level: u32,
@@ -103,10 +105,14 @@ pub fn champions(engine: State<Engine>) -> Vec<ChampionView> {
 fn account_view(engine: &Engine, status: &crate::engine::Status) -> Option<AccountView> {
     let icon_path = |id: u32| engine.champions().profile_icon_path(id).to_string_lossy().into_owned();
     if let Some(account) = status.account() {
-        return Some(AccountView { icon: icon_path(account.profile_icon_id), level: account.summoner_level });
+        return Some(AccountView {
+            name: status.riot_id().unwrap_or_default(),
+            icon: icon_path(account.profile_icon_id),
+            level: account.summoner_level,
+        });
     }
     let (_, last) = engine.last_account()?;
-    Some(AccountView { icon: icon_path(last.icon?), level: last.level.unwrap_or(0) })
+    Some(AccountView { name: last.display_name, icon: icon_path(last.icon?), level: last.level.unwrap_or(0) })
 }
 
 type Answer = Result<String, String>;

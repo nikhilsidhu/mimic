@@ -67,10 +67,12 @@
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
           <h1 class="text-lg font-semibold tracking-tight">Profiles</h1>
-          <p class="truncate text-sm text-muted-foreground">{view?.status ?? "Starting…"}</p>
+          <p class="truncate text-sm text-muted-foreground">{view?.account?.name ?? view?.status ?? "Starting…"}</p>
         </div>
         {#if view?.activity}
           <Badge variant="secondary">{view.activity}</Badge>
+        {:else if view && !view.connected}
+          <Badge variant="outline">{view.status}</Badge>
         {/if}
       </header>
 

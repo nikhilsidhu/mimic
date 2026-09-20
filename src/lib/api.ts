@@ -28,8 +28,8 @@ export type View = {
   /** The account's Riot ID, or why there is none. */
   status: string;
   connected: boolean;
-  /** The connected account's profile icon (a loadable URL) and level. */
-  account: { icon: string; level: number } | null;
+  /** The connected account, or the one last seen while League is closed. */
+  account: { name: string; icon: string; level: number } | null;
   phase: string | null;
   /** What the account is up to, for a badge, e.g. "Swiftplay · In game". */
   activity: string | null;

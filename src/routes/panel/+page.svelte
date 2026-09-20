@@ -96,9 +96,12 @@
   <header class="flex items-center gap-2.5 px-3 py-2.5">
     <Avatar account={view?.account} />
     <div class="min-w-0 flex-1">
-      <p class="text-[0.625rem] font-medium tracking-wide text-muted-foreground">mimic</p>
+      <!-- The account stays put while League is closed; the status line above it says so. -->
+      <p class="truncate text-[0.625rem] font-medium tracking-wide text-muted-foreground">
+        {view?.connected ? "mimic" : (view?.status ?? "Starting…")}
+      </p>
       <p class="truncate text-sm font-medium" class:text-muted-foreground={!view?.connected}>
-        {view?.status ?? "Starting…"}
+        {view?.account?.name ?? view?.status ?? "Starting…"}
       </p>
     </div>
     {#if view?.connected}
