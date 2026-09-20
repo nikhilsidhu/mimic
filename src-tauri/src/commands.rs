@@ -156,6 +156,55 @@ pub fn view(engine: State<Engine>) -> View {
     }
 }
 
+#[tauri::command]
+pub async fn update_profile(engine: State<'_, Engine>, id: String) -> Answer {
+    let changed = engine.update_profile(&id).await.map_err(|err| format!("Could not update: {err}"))?;
+    Ok(match changed {
+        0 => "Already matches this account".to_owned(),
+        1 => "Updated with 1 changed setting".to_owned(),
+        n => format!("Updated with {n} changed settings"),
+    })
+}
+
+#[tauri::command]
+pub async fn duplicate_profile(engine: State<'_, Engine>, id: String) -> Answer {
+    let copy = engine.duplicate_profile(&id).await.map_err(|err| format!("Could not duplicate: {err}"))?;
+    Ok(format!("Created '{}'", copy.name))
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProfileDetails {
+    /// Every setting in the profile.
+    settings: Vec<SettingRow>,
+    /// What applying it to the logged-in account would alter; absent with nobody logged in.
+    preview: Option<Vec<crate::settings::Change>>,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SettingRow {
+    file: String,
+    section: String,
+    key: String,
+    value: String,
+}
+
+#[tauri::command]
+pub fn profile_details(engine: State<Engine>, id: String) -> Result<ProfileDetails, String> {
+    let (profile, preview) = engine.profile_details(&id).map_err(|err| err.to_string())?;
+    let settings = profile
+        .settings
+        .iter()
+        .map(|(file, section, key, value)| SettingRow {
+            file: file.to_owned(),
+            section: section.to_owned(),
+            key: key.to_owned(),
+            value: value.to_owned(),
+        })
+        .collect();
+    Ok(ProfileDetails { settings, preview })
+}
+
 /// Asks where to save a profile and writes it there. `Ok(None)` when the user cancels.
 #[tauri::command]
 pub async fn export_profile(app: AppHandle, engine: State<'_, Engine>, id: String) -> Result<Option<String>, String> {

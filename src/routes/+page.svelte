@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import Check from "@lucide/svelte/icons/check";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import CopyPlus from "@lucide/svelte/icons/copy-plus";
   import Download from "@lucide/svelte/icons/download";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Upload from "@lucide/svelte/icons/upload";
   import { Badge } from "$lib/components/ui/badge";
@@ -14,6 +17,7 @@
   import AddChampion from "$lib/components/add-champion.svelte";
   import Avatar from "$lib/components/avatar.svelte";
   import Bind from "$lib/components/bind.svelte";
+  import ProfileDetails from "$lib/components/profile-details.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
@@ -24,7 +28,9 @@
   let busy = $state<string | null>(null);
   let message = $state<{ text: string; failed: boolean } | null>(null);
   /** The row being renamed or asking to confirm a delete, if any. */
-  let editing = $state<{ id: string; mode: "rename" | "delete"; name: string } | null>(null);
+  let editing = $state<{ id: string; mode: "rename" | "delete" | "update"; name: string } | null>(null);
+  /** The profile whose contents are shown, by id. */
+  let opened = $state<string | null>(null);
   let renameInput = $state<HTMLInputElement | null>(null);
   /** Whether the champion picker is open. */
   let adding = $state(false);
@@ -95,9 +101,17 @@
       <section class="overflow-hidden rounded-lg border border-border">
         {#each view?.profiles ?? [] as profile, index (profile.id)}
           <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
-            <span class="flex size-4 shrink-0 items-center justify-center">
-              {#if profile.active}<Check class="size-4" />{/if}
-            </span>
+            <button
+              class="flex shrink-0 items-center gap-1 text-faint hover:text-foreground"
+              aria-label="Show settings"
+              aria-expanded={opened === profile.id}
+              onclick={() => (opened = opened === profile.id ? null : profile.id)}
+            >
+              <ChevronRight class="size-3.5 transition-transform {opened === profile.id ? 'rotate-90' : ''}" />
+              <span class="flex size-4 items-center justify-center text-foreground">
+                {#if profile.active}<Check class="size-4" />{/if}
+              </span>
+            </button>
 
             {#if editing?.id === profile.id && editing.mode === "rename"}
               <form class="flex min-w-0 flex-1 items-center gap-2" onsubmit={submitRename}>
@@ -123,6 +137,14 @@
                 Delete
               </Button>
               <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
+            {:else if editing?.id === profile.id && editing.mode === "update"}
+              <p class="min-w-0 flex-1 truncate text-sm">
+                Overwrite <span class="font-medium">{profile.name}</span> with this account's settings?
+              </p>
+              <Button size="sm" disabled={busy !== null} onclick={() => run(profile.id, () => api.updateProfile(profile.id))}>
+                Overwrite
+              </Button>
+              <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
             {:else}
               <div class="min-w-0 flex-1">
                 <p class="truncate text-sm font-medium">{profile.name}</p>
@@ -133,6 +155,25 @@
               <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">
                 <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
                   <Pencil />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  disabled={!view?.connected}
+                  onclick={() => (editing = { id: profile.id, mode: "update", name: profile.name })}
+                  aria-label="Update from this account"
+                  title={view?.connected ? "Overwrite with this account's current settings" : "Log into League to update a profile"}
+                >
+                  <RefreshCw />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onclick={() => run(profile.id, () => api.duplicateProfile(profile.id))}
+                  aria-label="Duplicate"
+                  title="Duplicate"
+                >
+                  <CopyPlus />
                 </Button>
                 <Button
                   variant="ghost"
@@ -163,6 +204,9 @@
               </Button>
             {/if}
           </div>
+          {#if opened === profile.id}
+            <ProfileDetails id={profile.id} />
+          {/if}
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
             No profiles yet. Save one from the tray panel.

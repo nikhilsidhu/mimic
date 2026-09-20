@@ -28,6 +28,8 @@ pub enum ActionError {
     NoChampion,
     #[error("mimic does not know this account's settings yet; apply or save a profile first")]
     NoBaseline,
+    #[error("a champion's settings are on right now; try again after the game")]
+    OverlayActive,
     #[error("nothing on this account differs from its base, so there is nothing to keep")]
     NothingChanged,
     #[error("that file cannot be imported: {0}")]
@@ -526,6 +528,64 @@ impl Engine {
         Ok(())
     }
 
+    /// Overwrites a profile with what is on the logged-in account right now, and puts
+    /// the account on it. Refused while a champion's settings are on, as those are not
+    /// the account's own.
+    pub async fn update_profile(&self, id: &str) -> Result<usize> {
+        let _guard = self.inner.action_lock.lock().await;
+        let connection = self.connection()?;
+        if self.account().is_some_and(|account| account.overlay.is_some()) {
+            return Err(ActionError::OverlayActive);
+        }
+        let mut profile =
+            self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        let current = read_settings(&connection)?;
+        let changes = user_changes(&profile.settings, &current);
+
+        if !changes.is_empty() {
+            // The account itself does not change, so this is the only record of it.
+            let mut record =
+                Snapshot::new(&format!("updated '{}'", profile.name), Some(&connection.puuid), current.clone());
+            record.changes = changes.clone();
+            self.inner.store.save_snapshot(&record, KEEP_SNAPSHOTS)?;
+        }
+        profile.settings = current.clone();
+        profile.updated = time::OffsetDateTime::now_utc();
+        self.inner.store.save_profile(&profile)?;
+        self.remember(Some(&profile.id), current)?;
+        tracing::info!(id, name = %profile.name, changed = changes.len(), "updated profile from the account");
+        Ok(changes.len())
+    }
+
+    /// A copy of a profile under a free name.
+    pub async fn duplicate_profile(&self, id: &str) -> Result<Profile> {
+        let _guard = self.inner.action_lock.lock().await;
+        let original = self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        let taken: Vec<String> = self.inner.store.list_profiles()?.into_iter().map(|profile| profile.name).collect();
+        let base: String = original.name.chars().take(35).collect();
+        let name = (1..)
+            .map(|n| if n == 1 { format!("{base} copy") } else { format!("{base} copy {n}") })
+            .find(|candidate| !taken.contains(candidate))
+            .expect("an unbounded range always yields a free name");
+
+        let mut copy = Profile::new(&name, original.settings);
+        copy.client = original.client;
+        self.inner.store.save_profile(&copy)?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(copy)
+    }
+
+    /// A profile's settings, and what applying it to the logged-in account would change
+    /// (`None` when nobody is logged in).
+    pub fn profile_details(&self, id: &str) -> Result<(Profile, Option<Vec<Change>>)> {
+        let profile = self.inner.store.load_profile(id)?.ok_or_else(|| ActionError::NoSuchProfile(id.to_owned()))?;
+        let preview = match self.connection() {
+            Ok(connection) => Some(would_change(&read_settings(&connection)?, &profile.settings)),
+            Err(_) => None,
+        };
+        Ok((profile, preview))
+    }
+
     pub async fn rename_profile(&self, id: &str, name: &str) -> Result<()> {
         let _guard = self.inner.action_lock.lock().await;
         let mut profile =
@@ -729,6 +789,12 @@ pub(super) fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec
         .collect()
 }
 
+/// What writing `target` onto `current` would alter: only keys the target has, as a
+/// missing key is not a request to delete, and not the layout that moves on its own.
+pub(super) fn would_change(current: &SettingsMap, target: &SettingsMap) -> Vec<Change> {
+    user_changes(current, &merge(current, target))
+}
+
 fn count(n: usize, noun: &str) -> String {
     if n == 1 {
         format!("1 {noun}")
@@ -788,6 +854,28 @@ mod tests {
         }
         assert_eq!(at_login(None, None, false, false, "InProgress"), AtLogin::Nothing);
         assert_eq!(at_login(Some("alt"), None, false, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn a_preview_lists_only_what_an_apply_would_alter() {
+        let mut current = SettingsMap::default();
+        current.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        current.set("Input.ini", "GameEvents", "evtCastSpell2", "[w]");
+        current.set("Game.cfg", "HUD", "OnlyOnThisAccount", "1");
+        current.set("Game.cfg", "ItemShop", "CurrentTab", "0");
+
+        let mut profile = SettingsMap::default();
+        profile.set("Input.ini", "GameEvents", "evtCastSpell1", "[Shift][q]");
+        profile.set("Input.ini", "GameEvents", "evtCastSpell2", "[w]");
+        profile.set("Game.cfg", "ItemShop", "CurrentTab", "1");
+
+        // One real difference. The key the profile lacks is not deleted, and the shop's
+        // state does not count.
+        let changes = would_change(&current, &profile);
+        assert_eq!(changes.len(), 1);
+        assert_eq!(changes[0].key, "evtCastSpell1");
+        assert_eq!((changes[0].from.as_deref(), changes[0].to.as_deref()), (Some("[q]"), Some("[Shift][q]")));
+        assert!(would_change(&current, &current).is_empty());
     }
 
     #[test]

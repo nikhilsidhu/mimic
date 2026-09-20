@@ -161,3 +161,18 @@ export const getAccounts = () => invoke<AccountRow[]>("accounts");
 export const setAccountAutoApply = (puuid: string, enabled: boolean) =>
   invoke<void>("set_account_auto_apply", { puuid, enabled });
 export const forgetAccount = (puuid: string) => invoke<string>("forget_account", { puuid });
+
+/** One setting of a profile. */
+export type SettingRow = { file: string; section: string; key: string; value: string };
+
+export type ProfileDetails = {
+  /** Every setting in the profile. */
+  settings: SettingRow[];
+  /** What applying it to the logged-in account would alter; null with nobody logged in. */
+  preview: Change[] | null;
+};
+
+export const getProfileDetails = (id: string) => invoke<ProfileDetails>("profile_details", { id });
+/** Overwrites the profile with what is on the logged-in account right now. */
+export const updateProfile = (id: string) => invoke<string>("update_profile", { id });
+export const duplicateProfile = (id: string) => invoke<string>("duplicate_profile", { id });
