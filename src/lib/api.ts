@@ -13,6 +13,8 @@ export type Champion = {
   name: string;
   /** A URL the web view can load the cached icon from. */
   icon: string;
+  /** The logged-in account's mastery points on it; 0 if never played. */
+  mastery: number;
 };
 
 /** A champion's own settings: what it overrides, as [key, value] pairs. */
@@ -26,6 +28,8 @@ export type View = {
   /** The account's Riot ID, or why there is none. */
   status: string;
   connected: boolean;
+  /** The connected account's profile icon (a loadable URL) and level. */
+  account: { icon: string; level: number } | null;
   phase: string | null;
   /** Whether this account applies its profile by itself at login. */
   autoApply: boolean;
@@ -71,6 +75,7 @@ export async function getView(): Promise<View> {
   const view = await invoke<View>("view");
   return {
     ...view,
+    account: view.account && { ...view.account, icon: convertFileSrc(view.account.icon) },
     activeOverlay: view.activeOverlay && withIconUrl(view.activeOverlay),
     overlays: view.overlays.map((overlay) => ({ ...overlay, champion: withIconUrl(overlay.champion) })),
   };

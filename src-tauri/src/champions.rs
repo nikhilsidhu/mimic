@@ -1,12 +1,16 @@
-//! Champion names and icons, taken from the user's own League client and cached on
-//! disk so they are there when the client is not. Nothing of Riot's ships with mimic.
+//! Champion names and icons and the player's profile icon, taken from the user's own
+//! League client and cached on disk so they are there when the client is not. Nothing
+//! of Riot's ships with mimic.
 //!
 //! ```text
 //! cache/champions.json
 //! cache/champion-icons/<id>.png
+//! cache/profile-icons/<id>.jpg
 //! ```
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
 
@@ -21,12 +25,15 @@ pub struct Champion {
 #[derive(Debug, Clone)]
 pub struct Champions {
     dir: PathBuf,
+    /// Mastery points of the logged-in account by champion, to list the ones it plays
+    /// first. Kept in memory only: it belongs to whoever is logged in.
+    mastery: Arc<Mutex<HashMap<u32, u64>>>,
 }
 
 impl Champions {
     /// `data_dir` is mimic's data directory.
     pub fn new(data_dir: &Path) -> Self {
-        Champions { dir: data_dir.join("cache") }
+        Champions { dir: data_dir.join("cache"), mastery: Arc::default() }
     }
 
     /// The cached champions, sorted by name. Empty until a client has been seen once.
@@ -41,6 +48,34 @@ impl Champions {
 
     pub fn icon_path(&self, id: u32) -> PathBuf {
         self.dir.join("champion-icons").join(format!("{id}.png"))
+    }
+
+    /// Mastery points of the logged-in account on a champion; 0 if never played.
+    pub fn mastery(&self, id: u32) -> u64 {
+        self.mastery.lock().unwrap().get(&id).copied().unwrap_or(0)
+    }
+
+    pub fn profile_icon_path(&self, id: u32) -> PathBuf {
+        self.dir.join("profile-icons").join(format!("{id}.jpg"))
+    }
+
+    /// Fetches the profile icon unless it is cached already.
+    pub async fn ensure_profile_icon(&self, client: &LcuClient, id: u32) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let path = self.profile_icon_path(id);
+        if !path.exists() {
+            let bytes = client.get_bytes(&format!("/lol-game-data/assets/v1/profile-icons/{id}.jpg")).await?;
+            std::fs::create_dir_all(self.dir.join("profile-icons"))?;
+            std::fs::write(path, bytes)?;
+        }
+        Ok(())
+    }
+
+    /// Reads the logged-in account's champion mastery.
+    pub async fn refresh_mastery(&self, client: &LcuClient) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let entries: Vec<Mastery> = client.get("/lol-champion-mastery/v1/local-player/champion-mastery").await?;
+        *self.mastery.lock().unwrap() =
+            entries.into_iter().map(|entry| (entry.champion_id, entry.champion_points)).collect();
+        Ok(())
     }
 
     /// Brings the cache up to date with the connected client: the list every time, as
@@ -72,6 +107,13 @@ impl Champions {
         }
         Ok(fetched)
     }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Mastery {
+    champion_id: u32,
+    champion_points: u64,
 }
 
 /// An entry of the client's `champion-summary.json`.
@@ -112,5 +154,7 @@ mod tests {
         assert!(champions.list().is_empty());
         assert_eq!(champions.name(157), None);
         assert!(champions.icon_path(157).ends_with("cache/champion-icons/157.png"));
+        assert!(champions.profile_icon_path(7175).ends_with("cache/profile-icons/7175.jpg"));
+        assert_eq!(champions.mastery(157), 0);
     }
 }

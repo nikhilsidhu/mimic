@@ -52,6 +52,13 @@ impl Status {
         }
     }
 
+    pub fn account(&self) -> Option<&Summoner> {
+        match self {
+            Status::Connected { account, .. } => Some(account),
+            _ => None,
+        }
+    }
+
     /// The gameflow phase, e.g. `Lobby` or `InProgress`.
     pub fn phase(&self) -> Option<&str> {
         match self {
@@ -167,18 +174,23 @@ async fn run(status: watch::Sender<Status>, engine: Engine) {
     }
 }
 
-/// Fetches whatever champion names and icons the cache is missing.
-async fn refresh_champions(engine: Engine, client: LcuClient) {
-    match engine.inner.champions.refresh(&client).await {
-        Ok(0) => {}
-        Ok(fetched) => {
-            tracing::info!(fetched, "cached champion icons");
-            engine.inner.changed.send_modify(|revision| *revision += 1);
-        }
+/// Fetches what the cache is missing: champion names and icons, the account's profile
+/// icon, and its champion mastery. Each is optional decoration, so failures only log.
+async fn refresh_assets(engine: Engine, client: LcuClient, profile_icon: u32) {
+    let champions = &engine.inner.champions;
+    if let Err(err) = champions.ensure_profile_icon(&client, profile_icon).await {
+        tracing::warn!("could not fetch the profile icon: {err}");
+    }
+    if let Err(err) = champions.refresh_mastery(&client).await {
+        tracing::warn!("could not read champion mastery: {err}");
+    }
+    match champions.refresh(&client).await {
+        Ok(fetched) if fetched > 0 => tracing::info!(fetched, "cached champion icons"),
+        Ok(_) => {}
         Err(err) => tracing::warn!("could not refresh champion data: {err}"),
     }
+    engine.inner.changed.send_modify(|revision| *revision += 1);
 }
-
 /// Polls until a lockfile exists whose client actually answers; a lockfile can be stale.
 async fn wait_for_client(install: &LeagueInstall) -> (Lockfile, LcuClient) {
     loop {
@@ -235,7 +247,7 @@ async fn follow(
     status.send_replace(Status::Connected { account: account.clone(), phase: phase.clone() });
     // In the background: applying takes a second or two and phases must keep flowing.
     tokio::spawn(engine.clone().on_login(account.clone(), phase.clone()));
-    tokio::spawn(refresh_champions(engine.clone(), client.clone()));
+    tokio::spawn(refresh_assets(engine.clone(), client.clone(), account.profile_icon_id));
 
     // Whether a game has been running since the last check for changed settings.
     let mut played = phase == "InProgress";
@@ -277,6 +289,9 @@ async fn follow(
                         connect(&new.puuid);
                         tokio::spawn(engine.clone().on_login(new.clone(), phase.clone()));
                     }
+                    if new.puuid != account.puuid || new.profile_icon_id != account.profile_icon_id {
+                        tokio::spawn(refresh_assets(engine.clone(), client.clone(), new.profile_icon_id));
+                    }
                     account = new;
                 }
             }
@@ -298,7 +313,7 @@ mod tests {
 
     #[test]
     fn labels_say_what_the_tray_should_show() {
-        let account = Summoner { puuid: "p".into(), game_name: "Player".into(), tag_line: "NA1".into() };
+        let account = Summoner { game_name: "Player".into(), tag_line: "NA1".into(), ..Summoner::default() };
         assert_eq!(Status::Connected { account, phase: "Lobby".into() }.label(), "Player#NA1");
         assert_eq!(Status::ClientDown.label(), "League client is not running");
     }

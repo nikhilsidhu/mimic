@@ -8,12 +8,16 @@ use super::{LcuError, Lockfile, Result};
 use crate::settings::SettingsMap;
 
 /// The logged-in account, from `/lol-summoner/v1/current-summoner`.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Summoner {
     pub puuid: String,
     pub game_name: String,
     pub tag_line: String,
+    #[serde(default)]
+    pub profile_icon_id: u32,
+    #[serde(default)]
+    pub summoner_level: u32,
 }
 
 /// REST client for one running League client instance.
@@ -177,8 +181,9 @@ mod tests {
 
     #[test]
     fn parses_current_summoner() {
-        let json = r#"{"accountId":1,"gameName":"Player","tagLine":"NA1","puuid":"abc-123","summonerLevel":20}"#;
+        let json = r#"{"accountId":1,"gameName":"Player","tagLine":"NA1","puuid":"abc-123","profileIconId":7175,"summonerLevel":20}"#;
         let summoner: Summoner = serde_json::from_str(json).unwrap();
-        assert_eq!(summoner, Summoner { puuid: "abc-123".into(), game_name: "Player".into(), tag_line: "NA1".into() });
+        let expected = Summoner { puuid: "abc-123".into(), game_name: "Player".into(), tag_line: "NA1".into(), profile_icon_id: 7175, summoner_level: 20 };
+        assert_eq!(summoner, expected);
     }
 }

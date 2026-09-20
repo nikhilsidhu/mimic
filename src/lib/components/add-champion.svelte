@@ -23,8 +23,12 @@
   let failure = $state<string | null>(null);
   let searchInput = $state<HTMLInputElement | null>(null);
 
+  // The champions this account plays come first, most played at the top; the backend
+  // already sorted by name, and the sort is stable.
   const matches = $derived(
-    champions.filter((candidate) => candidate.name.toLowerCase().includes(search.trim().toLowerCase())),
+    champions
+      .filter((candidate) => candidate.name.toLowerCase().includes(search.trim().toLowerCase()))
+      .toSorted((a, b) => b.mastery - a.mastery),
   );
 
   onMount(async () => {

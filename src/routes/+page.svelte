@@ -9,6 +9,7 @@
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import AddChampion from "$lib/components/add-champion.svelte";
+  import Avatar from "$lib/components/avatar.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
 
@@ -60,8 +61,9 @@
 
   <ScrollArea class="min-h-0 flex-1">
     <main class="mx-auto flex max-w-2xl flex-col gap-6 px-8 pt-6 pb-10">
-      <header class="flex items-end justify-between gap-4">
-        <div class="min-w-0">
+      <header class="flex items-center gap-4">
+        <Avatar account={view?.account} size="lg" />
+        <div class="min-w-0 flex-1">
           <h1 class="text-lg font-semibold tracking-tight">Profiles</h1>
           <p class="truncate text-sm text-muted-foreground">{view?.status ?? "Starting…"}</p>
         </div>

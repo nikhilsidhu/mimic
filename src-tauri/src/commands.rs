@@ -18,6 +18,8 @@ pub struct View {
     /// The account's Riot ID, or why there is none.
     status: String,
     connected: bool,
+    /// The connected account's profile icon and level.
+    account: Option<AccountView>,
     phase: Option<String>,
     /// Whether this account applies its profile by itself at login.
     auto_apply: bool,
@@ -27,6 +29,14 @@ pub struct View {
     /// The champion whose settings are on top of this account's base right now.
     active_overlay: Option<ChampionView>,
     overlays: Vec<OverlayView>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountView {
+    /// Absolute path of the cached profile icon, for the asset protocol.
+    icon: String,
+    level: u32,
 }
 
 /// A champion's own settings.
@@ -54,6 +64,8 @@ pub struct ChampionView {
     name: String,
     /// Absolute path of the cached icon, for the asset protocol.
     icon: String,
+    /// The logged-in account's mastery points on it; 0 if never played.
+    mastery: u64,
 }
 
 impl ChampionView {
@@ -63,6 +75,7 @@ impl ChampionView {
             id,
             name: champions.name(id).unwrap_or_else(|| format!("Champion {id}")),
             icon: champions.icon_path(id).to_string_lossy().into_owned(),
+            mastery: champions.mastery(id),
         }
     }
 }
@@ -76,6 +89,7 @@ pub fn champions(engine: State<Engine>) -> Vec<ChampionView> {
         .into_iter()
         .map(|champion| ChampionView {
             icon: champions.icon_path(champion.id).to_string_lossy().into_owned(),
+            mastery: champions.mastery(champion.id),
             id: champion.id,
             name: champion.name,
         })
@@ -95,6 +109,10 @@ pub fn view(engine: State<Engine>) -> View {
     View {
         status: status.label(),
         connected: status.riot_id().is_some(),
+        account: status.account().map(|account| AccountView {
+            icon: engine.champions().profile_icon_path(account.profile_icon_id).to_string_lossy().into_owned(),
+            level: account.summoner_level,
+        }),
         phase: status.phase().map(str::to_owned),
         auto_apply: engine.auto_apply(),
         pending: engine.pending_profile(),

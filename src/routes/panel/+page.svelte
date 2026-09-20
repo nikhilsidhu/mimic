@@ -7,6 +7,7 @@
   import Power from "@lucide/svelte/icons/power";
   import Settings from "@lucide/svelte/icons/settings";
   import Undo2 from "@lucide/svelte/icons/undo-2";
+  import Avatar from "$lib/components/avatar.svelte";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -92,7 +93,8 @@
 </script>
 
 <main class="flex h-screen flex-col overflow-hidden border border-border bg-background text-xs select-none">
-  <header class="flex items-center gap-2 px-3 py-2.5">
+  <header class="flex items-center gap-2.5 px-3 py-2.5">
+    <Avatar account={view?.account} />
     <div class="min-w-0 flex-1">
       <p class="text-[0.625rem] font-medium tracking-wide text-muted-foreground">mimic</p>
       <p class="truncate text-sm font-medium" class:text-muted-foreground={!view?.connected}>
