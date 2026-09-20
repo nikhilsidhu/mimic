@@ -41,7 +41,7 @@
 </script>
 
 <header class="pt-2">
-  <h2 class="text-lg font-bold tracking-tight">Accounts</h2>
+  <h2 class="text-lg font-semibold tracking-tight">Accounts</h2>
   <p class="text-sm text-muted-foreground">
     Which profile each account is on.
   </p>

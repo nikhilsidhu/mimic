@@ -153,7 +153,7 @@
             {/if}
           </span>
           <span class="min-w-0 flex-1 truncate text-sm">{profile.name}</span>
-          <span class="shrink-0 text-muted-foreground">
+          <span class="shrink-0 text-faint">
             {view?.pending === profile.name ? "at next login" : `${profile.settings} settings`}
           </span>
         </button>

@@ -35,7 +35,7 @@
 </script>
 
 <header class="pt-2">
-  <h2 class="text-lg font-bold tracking-tight">History</h2>
+  <h2 class="text-lg font-semibold tracking-tight">History</h2>
   <p class="text-sm text-muted-foreground">
     Settings as they were before each change.
   </p>
@@ -46,7 +46,7 @@
     <div class="flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm font-medium">{reason(snapshot.reason)}</p>
-        <p class="truncate text-xs text-muted-foreground">
+        <p class="truncate text-xs text-faint">
           {when.format(new Date(snapshot.taken))}
           {#if snapshot.account}· {snapshot.account}{/if}
           · {snapshot.settings} settings
