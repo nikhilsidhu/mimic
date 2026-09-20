@@ -40,6 +40,8 @@ pub enum Status {
     Connected {
         account: Summoner,
         phase: String,
+        /// The queue the account is in or playing, e.g. "Swiftplay", once known.
+        queue: Option<String>,
     },
 }
 
@@ -67,6 +69,26 @@ impl Status {
         }
     }
 
+    /// What the account is up to, for a badge: "Swiftplay - In game", "Champ select", or
+    /// nothing while idle in the client.
+    pub fn activity(&self) -> Option<String> {
+        let Status::Connected { phase, queue, .. } = self else { return None };
+        let doing = match phase.as_str() {
+            "Lobby" => "In lobby",
+            "Matchmaking" => "In queue",
+            "ReadyCheck" => "Match found",
+            "ChampSelect" => "Champ select",
+            "GameStart" | "InProgress" => "In game",
+            "Reconnect" => "Reconnecting",
+            "WaitingForStats" | "PreEndOfGame" | "EndOfGame" => "Game over",
+            _ => return None,
+        };
+        Some(match queue {
+            Some(queue) if phase != "Lobby" => format!("{queue} \u{b7} {doing}"),
+            _ => doing.to_owned(),
+        })
+    }
+
     pub fn label(&self) -> String {
         match self {
             Status::Starting => "Starting…".to_owned(),
@@ -92,6 +114,9 @@ struct Inner {
     connection: Mutex<Option<Connection>>,
     /// The champion of the current or most recent game, for saving changes to it.
     last_champion: Mutex<Option<u32>>,
+    /// Whether Riot reset the account's settings, as reported at login (a patch does
+    /// that). Cleared once the user has settled what to do about it.
+    reset: Mutex<bool>,
     /// Actions read, snapshot and write; two of them must never interleave.
     action_lock: tokio::sync::Mutex<()>,
     /// Bumped whenever profiles or the active profile change, so the tray can redraw.
@@ -118,6 +143,7 @@ impl Engine {
             champions,
             connection: Mutex::new(None),
             last_champion: Mutex::new(None),
+            reset: Mutex::new(false),
             action_lock: tokio::sync::Mutex::new(()),
             changed: watch::channel(0).0,
             notices,
@@ -244,7 +270,8 @@ async fn follow(
         *inner.connection.lock().unwrap() = Some(connection);
     };
     connect(&account.puuid);
-    status.send_replace(Status::Connected { account: account.clone(), phase: phase.clone() });
+    let mut queue: Option<String> = None;
+    status.send_replace(Status::Connected { account: account.clone(), phase: phase.clone(), queue: None });
     // In the background: applying takes a second or two and phases must keep flowing.
     tokio::spawn(engine.clone().on_login(account.clone(), phase.clone()));
     tokio::spawn(refresh_assets(engine.clone(), client.clone(), account.profile_icon_id));
@@ -276,6 +303,15 @@ async fn follow(
                     }
                 }
             }
+            "/lol-gameflow/v1/session" => {
+                // The queue, for the status badge. It is empty between games.
+                queue = event
+                    .data
+                    .pointer("/gameData/queue/name")
+                    .and_then(serde_json::Value::as_str)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned);
+            }
             "/lol-champ-select/v1/session" => {
                 let now = if event.event_type == "Delete" { None } else { overlays::picked_champion(&event.data) };
                 if let (Some(champion), true) = (now, now != pick) {
@@ -298,7 +334,7 @@ async fn follow(
             _ => continue,
         }
         status.send_if_modified(|current| {
-            let new = Status::Connected { account: account.clone(), phase: phase.clone() };
+            let new = Status::Connected { account: account.clone(), phase: phase.clone(), queue: queue.clone() };
             let changed = *current != new;
             *current = new;
             changed
@@ -314,7 +350,23 @@ mod tests {
     #[test]
     fn labels_say_what_the_tray_should_show() {
         let account = Summoner { game_name: "Player".into(), tag_line: "NA1".into(), ..Summoner::default() };
-        assert_eq!(Status::Connected { account, phase: "Lobby".into() }.label(), "Player#NA1");
+        assert_eq!(Status::Connected { account, phase: "Lobby".into(), queue: None }.label(), "Player#NA1");
         assert_eq!(Status::ClientDown.label(), "League client is not running");
+    }
+
+    #[test]
+    fn activity_names_the_queue_and_what_is_going_on() {
+        let account = Summoner::default();
+        let status = |phase: &str, queue: Option<&str>| Status::Connected {
+            account: account.clone(),
+            phase: phase.into(),
+            queue: queue.map(str::to_owned),
+        };
+        assert_eq!(status("None", None).activity(), None);
+        assert_eq!(status("Lobby", Some("Swiftplay")).activity().as_deref(), Some("In lobby"));
+        assert_eq!(status("Matchmaking", Some("Swiftplay")).activity().as_deref(), Some("Swiftplay \u{b7} In queue"));
+        assert_eq!(status("InProgress", Some("ARAM")).activity().as_deref(), Some("ARAM \u{b7} In game"));
+        assert_eq!(status("ChampSelect", None).activity().as_deref(), Some("Champ select"));
+        assert_eq!(Status::ClientDown.activity(), None);
     }
 }

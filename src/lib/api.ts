@@ -31,6 +31,8 @@ export type View = {
   /** The connected account's profile icon (a loadable URL) and level. */
   account: { icon: string; level: number } | null;
   phase: string | null;
+  /** What the account is up to, for a badge, e.g. "Swiftplay · In game". */
+  activity: string | null;
   /** Whether this account applies its profile by itself at login. */
   autoApply: boolean;
   /** The profile waiting for the next login, by name. */
@@ -56,6 +58,8 @@ export type Drift = {
   /** The champion they were made on, if known. */
   champion: { id: number; name: string } | null;
   changes: Change[];
+  /** The changes are Riot's doing: the account's settings were reset, as after a patch. */
+  reset: boolean;
 };
 
 /** Somewhere a champion's settings could be taken from. `profile` is null for what changed just now. */

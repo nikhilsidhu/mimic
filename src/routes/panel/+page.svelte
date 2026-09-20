@@ -102,8 +102,8 @@
       </p>
     </div>
     {#if view?.connected}
-      {#if view.phase && view.phase !== "None"}
-        <Badge variant="secondary">{view.phase}</Badge>
+      {#if view.activity}
+        <Badge variant="secondary">{view.activity}</Badge>
       {/if}
       <Button variant="ghost" size="icon" onclick={copy} aria-label="Copy Riot ID" title="Copy Riot ID">
         {#if copied}<Check class="text-emerald-500" />{:else}<Copy />{/if}

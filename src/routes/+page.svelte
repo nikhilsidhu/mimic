@@ -67,8 +67,8 @@
           <h1 class="text-lg font-semibold tracking-tight">Profiles</h1>
           <p class="truncate text-sm text-muted-foreground">{view?.status ?? "Starting…"}</p>
         </div>
-        {#if view?.phase && view.phase !== "None"}
-          <Badge variant="secondary">{view.phase}</Badge>
+        {#if view?.activity}
+          <Badge variant="secondary">{view.activity}</Badge>
         {/if}
       </header>
 

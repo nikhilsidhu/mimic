@@ -48,11 +48,18 @@
 <main class="flex h-screen flex-col gap-3 border border-border bg-popover p-4 text-popover-foreground">
   <div>
     <p class="text-sm font-medium">
-      {drift?.changes.length ?? 0}
-      {drift?.changes.length === 1 ? "setting" : "settings"} changed
+      {#if drift?.reset}
+        Riot reset your settings
+      {:else}
+        {drift?.changes.length ?? 0}
+        {drift?.changes.length === 1 ? "setting" : "settings"} changed
+      {/if}
     </p>
     <p class="text-xs text-muted-foreground">
-      {#if drift?.profile}
+      {#if drift?.reset}
+        A patch put {drift.changes.length === 1 ? "1 setting" : `${drift.changes.length} settings`} back to Riot's
+        defaults. Restore puts yours back.
+      {:else if drift?.profile}
         Save to <span class="text-foreground">{drift.profile}</span> and your other accounts get it too.
       {:else if drift?.champion}
         This account is not on a profile, but it can be kept for {drift.champion.name}.
@@ -103,7 +110,9 @@
     {/if}
     <div class="flex gap-2">
       <Button class="flex-1" variant="ghost" disabled={busy} onclick={() => choose("keepHere")}>Keep here only</Button>
-      <Button class="flex-1" variant="ghost" disabled={busy} onclick={() => choose("revert")}>Revert</Button>
+      <Button class="flex-1" variant={drift?.reset ? "default" : "ghost"} disabled={busy} onclick={() => choose("revert")}>
+        {drift?.reset ? "Restore my settings" : "Revert"}
+      </Button>
     </div>
   </div>
 </main>

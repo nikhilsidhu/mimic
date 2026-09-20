@@ -68,6 +68,8 @@ pub struct Drift {
     pub profile: Option<String>,
     pub champion: Option<ChampionRef>,
     pub changes: Vec<Change>,
+    /// The changes are Riot's doing: the account's settings were reset, as after a patch.
+    pub reset: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
@@ -169,7 +171,15 @@ impl Engine {
         tokio::time::sleep(LOGIN_SETTLE).await;
         let result: Result<Option<String>> = async {
             let _guard = self.inner.action_lock.lock().await;
-            let mut current = read_settings(&self.connection()?)?;
+            let connection = self.connection()?;
+            let mut current = read_settings(&connection)?;
+            // Riot resets settings to defaults now and then, typically with a patch. It
+            // shows up below as changes, and the prompt says what happened.
+            let reset = connection.client.did_reset().await.unwrap_or(false);
+            *self.inner.reset.lock().unwrap() = reset;
+            if reset {
+                tracing::info!("Riot reset this account's settings");
+            }
             let profiles = self.inner.store.list_profiles()?;
             let mut accounts = self.inner.store.load_accounts()?;
             let entry =
@@ -270,7 +280,8 @@ impl Engine {
             id,
             name: self.inner.champions.name(id).unwrap_or_else(|| format!("champion {id}")),
         });
-        Ok(Some(Drift { profile, champion, changes }))
+        let reset = *self.inner.reset.lock().unwrap();
+        Ok(Some(Drift { profile, champion, changes, reset }))
     }
 
     /// What should be on the account if the user changed nothing: its baseline, with
@@ -380,6 +391,7 @@ impl Engine {
             account.baseline = Some(after);
             account.overlay = None;
         })?;
+        *self.inner.reset.lock().unwrap() = false;
         Ok(said)
     }
     /// Whether the logged-in account applies its profile by itself at login.

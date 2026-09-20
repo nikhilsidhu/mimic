@@ -21,6 +21,8 @@ pub struct View {
     /// The connected account's profile icon and level.
     account: Option<AccountView>,
     phase: Option<String>,
+    /// What the account is up to, for a badge, e.g. "Swiftplay - In game".
+    activity: Option<String>,
     /// Whether this account applies its profile by itself at login.
     auto_apply: bool,
     /// The profile waiting for the next login, by name.
@@ -114,6 +116,7 @@ pub fn view(engine: State<Engine>) -> View {
             level: account.summoner_level,
         }),
         phase: status.phase().map(str::to_owned),
+        activity: status.activity(),
         auto_apply: engine.auto_apply(),
         pending: engine.pending_profile(),
         profiles: profiles
