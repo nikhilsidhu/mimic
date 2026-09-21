@@ -2,6 +2,7 @@
 
 use serde::Serialize;
 use tauri::{AppHandle, State};
+use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
@@ -409,6 +410,19 @@ pub fn copy_riot_id(app: AppHandle, engine: State<Engine>) -> Answer {
     let riot_id = account_view(&engine, &status).map(|account| account.name).ok_or("No account to copy")?;
     app.clipboard().write_text(riot_id.clone()).map_err(|err| format!("Could not copy: {err}"))?;
     Ok(format!("Copied {riot_id}"))
+}
+
+/// Whether mimic starts with Windows.
+#[tauri::command]
+pub fn autostart(app: AppHandle) -> bool {
+    app.autolaunch().is_enabled().unwrap_or(false)
+}
+
+#[tauri::command]
+pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
+    let autolaunch = app.autolaunch();
+    let result = if enabled { autolaunch.enable() } else { autolaunch.disable() };
+    result.map_err(|err| format!("Could not change startup: {err}"))
 }
 
 #[tauri::command]

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - name: Type-check the frontend
+        run: npm run check
+      # Catches what the type checker lets through, such as files that are not valid UTF-8.
+      - name: Build the frontend
+        run: npm run build
+      - name: Test the backend
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib

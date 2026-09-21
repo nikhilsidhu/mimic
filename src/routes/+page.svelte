@@ -18,6 +18,7 @@
   import Avatar from "$lib/components/avatar.svelte";
   import Bind from "$lib/components/bind.svelte";
   import ProfileDetails from "$lib/components/profile-details.svelte";
+  import SettingsSection from "$lib/components/settings-section.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import * as api from "$lib/api";
@@ -293,6 +294,7 @@
           </p>
         {/each}
       </section>
+      <SettingsSection onmessage={(text, failed) => (message = { text, failed })} />
       <SnapshotsSection onmessage={(text, failed) => (message = { text, failed })} />
     </main>
   </ScrollArea>

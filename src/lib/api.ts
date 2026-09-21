@@ -176,3 +176,7 @@ export const getProfileDetails = (id: string) => invoke<ProfileDetails>("profile
 /** Overwrites the profile with what is on the logged-in account right now. */
 export const updateProfile = (id: string) => invoke<string>("update_profile", { id });
 export const duplicateProfile = (id: string) => invoke<string>("duplicate_profile", { id });
+
+/** Whether mimic starts with Windows. */
+export const getAutostart = () => invoke<boolean>("autostart");
+export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", { enabled });

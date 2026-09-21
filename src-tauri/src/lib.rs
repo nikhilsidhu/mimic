@@ -24,6 +24,10 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        // First, so that a second launch ends before it does anything: it hands over to
+        // the running one, which shows the manager.
+        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_manager(app)))
+        .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
@@ -55,6 +59,8 @@ pub fn run() {
             commands::drift,
             commands::resolve_drift,
             commands::copy_riot_id,
+            commands::autostart,
+            commands::set_autostart,
             commands::open_manager,
             commands::open_logs,
             commands::notify,
