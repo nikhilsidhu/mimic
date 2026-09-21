@@ -3,7 +3,8 @@
 
 use serde_json::Value;
 
-use super::actions::{read_settings, user_changes, ActionError, Announcement, DriftChoice, Result};
+use super::actions::{read_settings, user_changes, ActionError, Announcement, Result};
+use super::drift::DriftChoice;
 use super::Engine;
 use crate::profiles::Overlay;
 use crate::settings::{is_volatile, merge, overlay_between, SettingsMap};
