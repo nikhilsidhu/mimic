@@ -1,5 +1,7 @@
 <!-- App-wide switches. -->
 <script lang="ts">
+  import Check from "@lucide/svelte/icons/check";
+  import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
@@ -15,6 +17,8 @@
   let theme = $state<Theme>("system");
   let update = $state<api.UpdateStatus | null>(null);
   let updating = $state(false);
+  // A check just now found nothing newer.
+  let upToDate = $state(false);
   const themes: Theme[] = ["system", "light", "dark"];
   let install = $state<string | null>(null);
 
@@ -56,7 +60,11 @@
     updating = true;
     try {
       if (update?.available) await api.installUpdate();
-      else onmessage(await api.checkUpdate(), false);
+      else {
+        await api.checkUpdate();
+        await refreshUpdate();
+        upToDate = !update?.available;
+      }
     } catch (err) {
       onmessage(String(err), true);
     } finally {
@@ -149,15 +157,28 @@
     <Button variant="outline" size="sm" onclick={() => api.openDataFolder()}>Open folder</Button>
   </div>
   <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">Version {update?.current ?? ""}</p>
-      <p class="text-xs text-muted-foreground">
-        {update?.available ? `${update.available} is available.` : "Check for updates."}
-      </p>
-    </div>
-    <Button variant={update?.available ? "default" : "outline"} size="sm" disabled={updating} onclick={updateOrCheck}>
-      {updating ? "Working…" : update?.available ? "Update" : "Check"}
-    </Button>
+    <p class="min-w-0 flex-1 text-sm font-medium">Version</p>
+    <span class="text-xs text-faint">{update?.current ?? ""}</span>
+    {#if update?.available}
+      <Button size="sm" disabled={updating} onclick={updateOrCheck}>
+        {updating ? "Updating…" : `Update to ${update.available}`}
+      </Button>
+    {:else}
+      <Button
+        variant="ghost"
+        size="icon"
+        disabled={updating}
+        onclick={updateOrCheck}
+        aria-label={upToDate ? "Up to date. Check again" : "Check for updates"}
+        title={upToDate ? "Up to date" : "Check for updates"}
+      >
+        {#if upToDate}
+          <Check />
+        {:else}
+          <RefreshCw class={updating ? "animate-spin" : ""} />
+        {/if}
+      </Button>
+    {/if}
   </div>
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">
