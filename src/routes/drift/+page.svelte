@@ -4,6 +4,9 @@
   import ChangesReview from "$lib/components/changes-review.svelte";
   import * as api from "$lib/api";
 
+  /** `p-4` twice, and the border twice. */
+  const FRAME = 34;
+
   const close = () => getCurrentWindow().hide();
 </script>
 
@@ -14,5 +17,6 @@
       close();
       api.notify(said);
     }}
+    onsize={(height) => api.fitPrompt(height + FRAME)}
   />
 </main>

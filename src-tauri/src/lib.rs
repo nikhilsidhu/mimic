@@ -71,6 +71,7 @@ pub fn run() {
             commands::undo_last,
             commands::drift,
             commands::resolve_drift,
+            commands::fit_prompt,
             commands::muted_settings,
             commands::mute_setting,
             commands::unmute_setting,

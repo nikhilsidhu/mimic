@@ -451,6 +451,14 @@ pub fn drift(engine: State<Engine>) -> Option<Drift> {
     })
 }
 
+/// The prompt about changed settings asks to be as tall as what it shows.
+#[tauri::command]
+pub fn fit_prompt(app: AppHandle, height: f64) {
+    if let Err(err) = tray::fit_drift_prompt(&app, height) {
+        tracing::debug!("could not resize the prompt: {err}");
+    }
+}
+
 #[tauri::command]
 pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> Answer {
     // The demo has no client to write to.

@@ -24,6 +24,8 @@ const BLUR_SETTLE: Duration = Duration::from_millis(100);
 pub const PANEL: &str = "panel";
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
 const DRIFT_SIZE: (f64, f64) = (380.0, 376.0);
+/// The least and the most the prompt's height is fitted to; past the most, its list scrolls.
+const DRIFT_HEIGHT: (f64, f64) = (220.0, 560.0);
 
 /// When the panel was last hidden. Clicking the tray icon while the panel is open first
 /// takes its focus away, which hides it; without this the same click would then open
@@ -217,6 +219,28 @@ pub fn show_drift_prompt(app: &AppHandle) {
 /// Shows a frameless popup in the bottom-right corner of the primary monitor's work
 /// area, above the taskbar. It never takes focus, so it cannot pull the user out of
 /// whatever they are doing. `label` is also the frontend route.
+/// Makes the prompt about changed settings as tall as what it shows, within reason, keeping it
+/// in its corner. The page asks for this once it knows how much there is.
+pub fn fit_drift_prompt(app: &AppHandle, height: f64) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window("drift") else { return Ok(()) };
+    window.set_size(tauri::LogicalSize::new(DRIFT_SIZE.0, height.clamp(DRIFT_HEIGHT.0, DRIFT_HEIGHT.1)))?;
+    place_in_corner(&window)
+}
+
+/// Bottom right of the primary monitor's work area, above the taskbar.
+fn place_in_corner(window: &WebviewWindow) -> tauri::Result<()> {
+    if let Some(monitor) = window.primary_monitor()? {
+        let area = monitor.work_area();
+        let size = window.outer_size()?;
+        let margin = (MARGIN * monitor.scale_factor()) as i32;
+        window.set_position(PhysicalPosition::new(
+            area.position.x + area.size.width as i32 - size.width as i32 - margin,
+            area.position.y + area.size.height as i32 - size.height as i32 - margin,
+        ))?;
+    }
+    Ok(())
+}
+
 fn show_popup(app: &AppHandle, label: &str, width: f64, height: f64) -> tauri::Result<()> {
     let window = match app.get_webview_window(label) {
         Some(window) => window,
@@ -232,14 +256,6 @@ fn show_popup(app: &AppHandle, label: &str, width: f64, height: f64) -> tauri::R
             .build()?,
     };
 
-    if let Some(monitor) = window.primary_monitor()? {
-        let area = monitor.work_area();
-        let size = window.outer_size()?;
-        let margin = (MARGIN * monitor.scale_factor()) as i32;
-        window.set_position(PhysicalPosition::new(
-            area.position.x + area.size.width as i32 - size.width as i32 - margin,
-            area.position.y + area.size.height as i32 - size.height as i32 - margin,
-        ))?;
-    }
+    place_in_corner(&window)?;
     window.show()
 }

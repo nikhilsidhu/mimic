@@ -11,7 +11,7 @@
 
 <ul class="divide-y divide-border text-xs">
   {#each changes as change (change.file + change.section + change.key)}
-    <li class="flex items-center gap-2 px-2.5 py-2">
+    <li class="flex items-center gap-2 px-2.5 py-1.5">
       <span class="min-w-0 flex-1 truncate" title="{change.section} / {change.key}">{settingLabel(change.key)}</span>
       <FromTo keys={isBind(change)} name={change.key} from={change.from} to={change.to} />
       {#if onmute}

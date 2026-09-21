@@ -1,11 +1,10 @@
 <!-- The settings the user changed, and the choice of where they go. Shown by itself in the
      prompt after a game, and inside the tray panel when asked for from there. -->
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import X from "@lucide/svelte/icons/x";
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as api from "$lib/api";
 
   type Props = {
@@ -13,8 +12,16 @@
     onclose: () => void;
     /** The changes were settled; `said` is the sentence about it. */
     ondone: (said: string) => void;
+    /** How tall this is when nothing has to scroll, for a window that fits itself to it. */
+    onsize?: (height: number) => void;
   };
-  let { onclose, ondone }: Props = $props();
+  let { onclose, ondone, onsize }: Props = $props();
+
+  let top = $state<HTMLElement | null>(null);
+  let list = $state<HTMLElement | null>(null);
+  let bottom = $state<HTMLElement | null>(null);
+  /** The space between the parts, `gap-3`. */
+  const GAP = 12;
 
   let drift = $state<api.Drift | null>(null);
   let busy = $state(false);
@@ -82,6 +89,17 @@
     }
   }
 
+  // Measured after every change to what is shown: the list by what it holds, not by the room it got.
+  $effect(() => {
+    void [drift, failure];
+    if (!onsize || !top || !list || !bottom) return;
+    tick().then(() => {
+      if (!top || !list || !bottom) return;
+      const parts = [top.offsetHeight, list.scrollHeight + 2, bottom.offsetHeight];
+      onsize(parts.reduce((total, part) => total + part, 0) + GAP * (parts.length - 1));
+    });
+  });
+
   const choose = (choice: api.DriftChoice) => act(async () => ondone(await api.resolveDrift(choice)));
   // Muting the last row leaves nothing to ask; refresh then closes this.
   const mute = (change: api.Change) =>
@@ -94,7 +112,7 @@
 <svelte:window onkeydown={(event) => event.key === "Escape" && onclose()} />
 
 <div class="flex min-h-0 flex-1 flex-col gap-3">
-  <div class="relative">
+  <div class="relative" bind:this={top}>
     <!-- Decide later: the changes stay, and the tray panel offers to review them. -->
     <Button
       class="absolute -top-1.5 -right-1.5 text-faint"
@@ -124,16 +142,15 @@
     </p>
   </div>
 
-  <!-- As tall as its rows, so the box ends where the list does; with many it shrinks and scrolls. -->
-  <ScrollArea class="min-h-0 shrink rounded-md border border-border">
+  <!-- As tall as its rows, so the box ends where the list does; with more than fit it scrolls. -->
+  <div class="min-h-0 shrink overflow-y-auto rounded-md border border-border" bind:this={list}>
     <ChangeList changes={drift?.changes ?? []} onmute={mute} />
-  </ScrollArea>
+  </div>
 
-  {#if failure}
-    <p class="text-xs text-destructive">{failure}</p>
-  {/if}
-
-  <div class="mt-auto flex flex-col gap-1">
+  <div class="mt-auto flex flex-col gap-1" bind:this={bottom}>
+    {#if failure}
+      <p class="pb-1 text-xs text-destructive">{failure}</p>
+    {/if}
     {#each choices as option, index (option.choice)}
       <button
         class="rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"

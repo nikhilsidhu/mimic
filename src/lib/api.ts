@@ -132,6 +132,8 @@ export const removeOverlaySetting = (champion: number, setting: { file: string; 
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
+/** Asks for the prompt's window to be this tall, so that it fits what it shows. */
+export const fitPrompt = (height: number) => invoke<void>("fit_prompt", { height });
 /** How a setting is named in the list of muted ones. */
 export const muteId = (change: { file: string; section: string; key: string }) =>
   `${change.file}/${change.section}/${change.key}`;
