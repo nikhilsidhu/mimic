@@ -16,7 +16,8 @@
 
   type Option = { choice: api.DriftChoice; title: string; says: string; primary: boolean };
 
-  // What can be done with the changes, the most likely first. After a reset by Riot that
+  // What can be done with the changes, the most likely first. `says` is the tooltip: the
+  // titles have to be clear without it. After a reset by Riot that
   // is putting things back; otherwise it is saving them.
   const choices = $derived.by((): Option[] => {
     if (!drift) return [];
@@ -26,28 +27,28 @@
       options.push({
         choice: "saveToProfile",
         title: `Save to ${profile}`,
-        says: "all your accounts",
+        says: `Every account that uses ${profile} gets these changes.`,
         primary: false,
       });
     }
     if (champion) {
       options.push({
         choice: "saveToChampion",
-        title: `Only for ${champion.name}`,
-        says: "just this champion",
+        title: `Save for ${champion.name} only`,
+        says: `Used whenever you play ${champion.name}, and taken off afterwards.`,
         primary: false,
       });
     }
     options.push({
       choice: "keepHere",
-      title: "Only this account",
-      says: "profile untouched",
+      title: "Keep on this account only",
+      says: profile ? `The changes stay on this account. ${profile} is not changed.` : "The changes stay on this account.",
       primary: false,
     });
     const revert: Option = {
       choice: "revert",
-      title: reset ? "Restore my settings" : "Revert",
-      says: "undo the changes",
+      title: reset ? "Restore my settings" : "Undo changes",
+      says: "Puts everything back the way it was.",
       primary: false,
     };
     if (reset) options.unshift(revert);
@@ -135,15 +136,15 @@
   <div class="flex flex-col gap-1">
     {#each choices as option (option.choice)}
       <button
-        class="flex items-baseline gap-3 rounded-md border px-2.5 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50"
+        class="rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+        title={option.says}
         class:border-border={option.primary}
         class:border-transparent={!option.primary}
         class:bg-accent={option.primary}
         disabled={busy}
         onclick={() => choose(option.choice)}
       >
-        <span class="min-w-0 flex-1 truncate text-sm font-medium">{option.title}</span>
-        <span class="shrink-0 text-xs text-muted-foreground">{option.says}</span>
+        {option.title}
       </button>
     {/each}
   </div>
