@@ -83,6 +83,16 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
         });
     }
 
+    if crate::demo::enabled() {
+        // Tall enough to show every section at once.
+        if let Some(manager) = app.get_webview_window("main") {
+            let _ = manager.set_size(tauri::LogicalSize::new(920.0, 1180.0));
+        }
+        show_manager(app);
+        show_drift_prompt(app);
+        toggle_panel(app, PhysicalPosition::new(0.0, 0.0))?;
+    }
+
     // Keeps the tooltip current and tells open windows to refresh.
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
@@ -149,6 +159,10 @@ fn toggle_panel(app: &AppHandle, click: PhysicalPosition<f64>) -> tauri::Result<
 /// hiding on that would swallow the click. So the window is looked at again a moment
 /// later and only hidden if it really is no longer the active one.
 pub fn hide_panel_if_inactive(window: tauri::Window) {
+    // The demo keeps every window open so that they can be captured together.
+    if crate::demo::enabled() {
+        return;
+    }
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(BLUR_SETTLE).await;
         if !window.is_focused().unwrap_or(false) {

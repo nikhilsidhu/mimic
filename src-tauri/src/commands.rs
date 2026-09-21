@@ -409,6 +409,9 @@ pub async fn undo_last(engine: State<'_, Engine>) -> Answer {
 /// The settings the user changed on this account, if any.
 #[tauri::command]
 pub fn drift(engine: State<Engine>) -> Option<Drift> {
+    if crate::demo::enabled() {
+        return Some(crate::demo::drift());
+    }
     engine.drift().unwrap_or_else(|err| {
         tracing::warn!("could not check for changed settings: {err}");
         None

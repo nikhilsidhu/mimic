@@ -23,15 +23,16 @@ public static class MimicWin {
 # Without this the coordinates are scaled and the capture is cropped on high-DPI screens.
 [MimicWin]::SetProcessDPIAware() | Out-Null
 
-$app = Get-Process mimic -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $app) { Write-Error "mimic is not running"; exit 1 }
+# Every running mimic: an installed copy and a development one can run side by side.
+$apps = @(Get-Process mimic -ErrorAction SilentlyContinue | ForEach-Object { $_.Id })
+if (-not $apps) { Write-Error "mimic is not running"; exit 1 }
 
 $script:found = @()
 [MimicWin]::EnumWindows({
     param($h, $l)
     $owner = 0
     [MimicWin]::GetWindowThreadProcessId($h, [ref]$owner) | Out-Null
-    if ($owner -eq $app.Id -and [MimicWin]::IsWindowVisible($h)) {
+    if ($apps -contains $owner -and [MimicWin]::IsWindowVisible($h)) {
         $r = New-Object MimicWin+RECT
         [MimicWin]::GetWindowRect($h, [ref]$r) | Out-Null
         if (($r.R - $r.L) -gt 100) { $script:found += , @($h, $r) }

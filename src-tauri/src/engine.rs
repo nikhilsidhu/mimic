@@ -210,6 +210,22 @@ async fn run(status: watch::Sender<Status>, engine: Engine) {
     inner.changed.send_modify(|revision| *revision += 1);
     tracing::info!(install = %install.root().display(), "found League install");
 
+    // The demo has an account without a client. Anything that would talk to one fails.
+    if crate::demo::enabled() {
+        let account = crate::demo::account();
+        let lockfile = Lockfile { pid: 0, port: 1, password: String::new(), protocol: "https".to_owned() };
+        if let Ok(client) = LcuClient::new(&lockfile) {
+            *inner.connection.lock().unwrap() = Some(Connection { client, install, puuid: account.puuid.clone() });
+        }
+        status.send_replace(Status::Connected {
+            account,
+            phase: crate::demo::PHASE.to_owned(),
+            queue: Some(crate::demo::QUEUE.to_owned()),
+        });
+        inner.changed.send_modify(|revision| *revision += 1);
+        return std::future::pending().await;
+    }
+
     loop {
         status.send_replace(Status::ClientDown);
         let (lockfile, client) = wait_for_client(&install).await;

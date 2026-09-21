@@ -1,5 +1,6 @@
 pub mod champions;
 mod commands;
+mod demo;
 pub mod engine;
 pub mod lcu;
 mod logging;
@@ -17,17 +18,25 @@ use profiles::Store;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let data_dir = platform::data_dir().expect("APPDATA is set on Windows");
+    let mut data_dir = platform::data_dir().expect("APPDATA is set on Windows");
+    // Champion and profile icons, which the web view may only load from this folder.
+    let cache_dir = data_dir.clone();
+    if demo::enabled() {
+        data_dir = demo::prepare(&data_dir).expect("the demo data can be written");
+    }
 
     // The app is still useful without a log file, so a failure here is not fatal.
     if let Err(err) = logging::init(&data_dir.join("logs")) {
         eprintln!("could not start logging: {err}");
     }
 
-    tauri::Builder::default()
-        // First, so that a second launch ends before it does anything: it hands over to
-        // the running one, which shows the manager.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_manager(app)))
+    let mut builder = tauri::Builder::default();
+    // First, so that a second launch ends before it does anything: it hands over to the
+    // running one, which shows the manager. The demo runs next to a real mimic.
+    if !demo::enabled() {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_manager(app)));
+    }
+    builder
         .plugin(tauri_plugin_autostart::init(tauri_plugin_autostart::MacosLauncher::LaunchAgent, None))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -84,7 +93,7 @@ pub fn run() {
         ])
         .setup(move |app| {
             // The engine needs Tauri's Tokio runtime to be current when it spawns.
-            let engine = tauri::async_runtime::block_on(async { Engine::spawn(Store::new(&data_dir), Champions::new(&data_dir)) });
+            let engine = tauri::async_runtime::block_on(async { Engine::spawn(Store::new(&data_dir), Champions::new(&cache_dir)) });
             app.manage(engine.clone());
             tray::init(app.handle(), engine)?;
             updates::watch(app.handle().clone());
