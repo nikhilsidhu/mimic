@@ -6,11 +6,14 @@
   import { Switch } from "$lib/components/ui/switch";
   import { settingLabel } from "$lib/binds";
   import * as api from "$lib/api";
+  import { getTheme, setTheme, type Theme } from "$lib/theme";
 
   let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
 
   let autostart = $state(false);
   let notices = $state(true);
+  let theme = $state<Theme>("system");
+  const themes: Theme[] = ["system", "light", "dark"];
   let install = $state<string | null>(null);
 
   // Settings muted from the prompt about changed settings, as `file/section/key`.
@@ -20,6 +23,7 @@
   const refreshMuted = async () => (muted = await api.getMutedSettings());
 
   onMount(() => {
+    theme = getTheme();
     api.getAutostart().then((enabled) => (autostart = enabled));
     api.getShowsNotices().then((enabled) => (notices = enabled));
     refreshInstall();
@@ -88,6 +92,27 @@
     </div>
     <Switch checked={notices} onCheckedChange={setNotices} />
   </label>
+  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium">Theme</p>
+      <p class="text-xs text-muted-foreground">System follows Windows.</p>
+    </div>
+    <div class="flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
+      {#each themes as option (option)}
+        <button
+          class="rounded px-2.5 py-1 text-xs capitalize text-muted-foreground aria-checked:bg-accent aria-checked:text-accent-foreground"
+          role="radio"
+          aria-checked={theme === option}
+          onclick={() => {
+            theme = option;
+            setTheme(option);
+          }}
+        >
+          {option}
+        </button>
+      {/each}
+    </div>
+  </div>
   <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium">League folder</p>
