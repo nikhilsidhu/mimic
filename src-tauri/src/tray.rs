@@ -28,6 +28,9 @@ const DRIFT_SIZE: (f64, f64) = (380.0, 376.0);
 /// default is a flash of white.
 const WINDOW_GROUND: tauri::window::Color = tauri::window::Color(0, 0, 0, 255);
 
+/// The manager is never fitted smaller than this, which is also its minimum in `tauri.conf.json`.
+const MANAGER_MIN_HEIGHT: f64 = 420.0;
+
 /// The least and the most the prompt's height is fitted to; past the most, its list scrolls.
 const DRIFT_HEIGHT: (f64, f64) = (220.0, 560.0);
 
@@ -248,6 +251,18 @@ pub fn fit_drift_prompt(app: &AppHandle, height: f64) -> tauri::Result<()> {
     let Some(window) = app.get_webview_window("drift") else { return Ok(()) };
     window.set_size(tauri::LogicalSize::new(DRIFT_SIZE.0, height.clamp(DRIFT_HEIGHT.0, DRIFT_HEIGHT.1)))?;
     place_in_corner(&window)
+}
+
+/// Makes the manager as tall as what it shows, up to what the screen has room for, and centres
+/// it. The page asks for this once, when it first knows how much there is.
+pub fn fit_manager(app: &AppHandle, height: f64) -> tauri::Result<()> {
+    let Some(window) = app.get_webview_window("main") else { return Ok(()) };
+    let Some(monitor) = window.current_monitor()?.or(window.primary_monitor()?) else { return Ok(()) };
+    let scale = monitor.scale_factor();
+    let room = monitor.work_area().size.height as f64 / scale - 2.0 * MARGIN;
+    let width = window.inner_size()?.width as f64 / scale;
+    window.set_size(tauri::LogicalSize::new(width, height.clamp(MANAGER_MIN_HEIGHT, room.max(MANAGER_MIN_HEIGHT))))?;
+    window.center()
 }
 
 /// Bottom right of the primary monitor's work area, above the taskbar.

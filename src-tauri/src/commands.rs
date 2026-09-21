@@ -461,6 +461,14 @@ pub fn drift(engine: State<Engine>) -> Option<Drift> {
     changes_to_review(&engine)
 }
 
+/// The manager asks to be as tall as what it shows, once, when it first has something to show.
+#[tauri::command]
+pub fn fit_manager(app: AppHandle, height: f64) {
+    if let Err(err) = tray::fit_manager(&app, height) {
+        tracing::debug!("could not resize the manager: {err}");
+    }
+}
+
 /// The prompt about changed settings asks to be as tall as what it shows.
 #[tauri::command]
 pub fn fit_prompt(app: AppHandle, height: f64) {

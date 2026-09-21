@@ -1,6 +1,6 @@
 <!-- The manager: the account in use, then a section for everything mimic keeps. -->
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import Power from "@lucide/svelte/icons/power";
   import AccountsSection from "$lib/components/accounts-section.svelte";
@@ -33,13 +33,25 @@
     refresh();
     return api.onViewChanged(refresh);
   });
+
+  let page = $state<HTMLElement | null>(null);
+  /** The title bar, which the page sits under. */
+  const TITLEBAR = 32;
+  // Once, when there is first something to show: the window is made as tall as the page, so that
+  // it opens fitting what it holds. Not again, or it would fight whoever resizes it.
+  let fitted = false;
+  $effect(() => {
+    if (!view || !page || fitted) return;
+    fitted = true;
+    tick().then(() => requestAnimationFrame(() => page && api.fitManager(page.scrollHeight + TITLEBAR)));
+  });
 </script>
 
 <div class="flex h-screen flex-col bg-background">
   <Titlebar />
 
   <ScrollArea class="fade-edges min-h-0 flex-1">
-    <main class="mx-auto flex max-w-4xl flex-col gap-6 px-6 pt-6 pb-10">
+    <main bind:this={page} class="mx-auto flex max-w-4xl flex-col gap-6 px-6 pt-6 pb-10">
       <header class="flex items-center gap-4">
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
