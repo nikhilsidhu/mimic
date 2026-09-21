@@ -20,7 +20,8 @@ export type Champion = {
 /** A champion's own settings: what it overrides. */
 export type Overlay = {
   champion: Champion;
-  settings: SettingRow[];
+  /** `from` is what the override replaces, when the account's base is known and differs. */
+  settings: (SettingRow & { from: string | null })[];
 };
 
 /** Everything the tray panel and the manager display. */
@@ -81,9 +82,18 @@ export async function getView(): Promise<View> {
   const view = await invoke<View>("view");
   return {
     ...view,
+    // The profile in use comes first, the rest by name.
+    profiles: [...view.profiles].sort((a, b) => Number(b.active) - Number(a.active) || a.name.localeCompare(b.name)),
     account: view.account && { ...view.account, icon: convertFileSrc(view.account.icon) },
     activeOverlay: view.activeOverlay && withIconUrl(view.activeOverlay),
-    overlays: view.overlays.map((overlay) => ({ ...overlay, champion: withIconUrl(overlay.champion) })),
+    // The champion whose settings are on comes first, the rest by name.
+    overlays: view.overlays
+      .map((overlay) => ({ ...overlay, champion: withIconUrl(overlay.champion) }))
+      .sort(
+        (a, b) =>
+          Number(b.champion.id === view.activeOverlay?.id) - Number(a.champion.id === view.activeOverlay?.id) ||
+          a.champion.name.localeCompare(b.champion.name),
+      ),
   };
 }
 
@@ -135,6 +145,10 @@ export const copyRiotId = () => invoke<string>("copy_riot_id");
 
 export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
 export const openManager = () => invoke<void>("open_manager");
+/** Opens the manager with its champion picker showing. */
+export const addChampion = () => invoke<void>("add_champion");
+/** Calls `onAsk` when the manager is asked to show its champion picker. */
+export const onAddChampion = (onAsk: () => void) => on("add-champion", onAsk);
 export const openLogs = () => invoke<void>("open_logs");
 /** Opens the folder with everything mimic stores. */
 export const openDataFolder = () => invoke<void>("open_data_folder");

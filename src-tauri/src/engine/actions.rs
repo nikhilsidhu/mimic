@@ -737,6 +737,16 @@ impl Engine {
         self.account()?.profile_id
     }
 
+    /// What a champion's overrides are laid over: the logged-in account's base, or else the
+    /// profile last used.
+    pub fn base_settings(&self) -> Option<SettingsMap> {
+        if let Some(baseline) = self.account().and_then(|account| account.baseline) {
+            return Some(baseline);
+        }
+        let id = self.inner.store.load_state().ok()?.active_profile?;
+        Some(self.inner.store.load_profile(&id).ok()??.settings)
+    }
+
     /// Snapshots the current settings, writes whatever differs from `target`, and makes
     /// the result the account's baseline.
     async fn write(&self, target: &SettingsMap, reason: &str, profile_id: Option<&str>) -> Result<Applied> {

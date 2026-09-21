@@ -2,6 +2,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Undo2 from "@lucide/svelte/icons/undo-2";
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as api from "$lib/api";
@@ -35,23 +36,40 @@
     }
   }
 
+  async function undo() {
+    if (busy) return;
+    busy = "undo";
+    try {
+      onmessage(await api.undoLast(), false);
+    } catch (err) {
+      onmessage(String(err), true);
+    } finally {
+      busy = null;
+      refresh();
+    }
+  }
+
   const when = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
   /** "before applying 'Main'" reads better as "Before applying Main". */
   const reason = (text: string) => text.replace(/'/g, "").replace(/^\w/, (c) => c.toUpperCase());
 </script>
 
-<button
-  class="group flex w-full items-center gap-2 pt-2 text-left"
-  aria-expanded={expanded}
-  onclick={() => (expanded = !expanded)}
->
-  <ChevronRight class="size-4 shrink-0 text-faint transition-transform {expanded ? 'rotate-90' : ''}" />
-  <div class="min-w-0 flex-1">
-    <h2 class="text-lg font-semibold tracking-tight">History</h2>
-    <p class="text-sm text-muted-foreground">Every change mimic made, and what it altered.</p>
-  </div>
-  <span class="text-xs text-faint">{snapshots.length} {snapshots.length === 1 ? "entry" : "entries"}</span>
-</button>
+<div class="flex items-end gap-3 pt-2">
+  <button class="group flex min-w-0 flex-1 items-center gap-2 text-left" aria-expanded={expanded} onclick={() => (expanded = !expanded)}>
+    <ChevronRight class="size-4 shrink-0 text-faint transition-transform {expanded ? 'rotate-90' : ''}" />
+    <div class="min-w-0 flex-1">
+      <h2 class="text-lg font-semibold tracking-tight">History</h2>
+      <p class="text-sm text-muted-foreground">
+        Every change mimic made, and what it altered.
+        <span class="text-faint">{snapshots.length} {snapshots.length === 1 ? "entry" : "entries"}</span>
+      </p>
+    </div>
+  </button>
+  <!-- Goes back to before the newest change, without having to find it in the list. -->
+  <Button variant="outline" size="sm" disabled={busy !== null || !snapshots[0]?.restorable} onclick={undo}>
+    <Undo2 />Undo last change
+  </Button>
+</div>
 
 {#if expanded}
 <section class="overflow-hidden rounded-lg border border-border">

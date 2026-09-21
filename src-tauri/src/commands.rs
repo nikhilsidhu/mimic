@@ -1,7 +1,7 @@
 //! What the web UI can ask of the app. Each action answers with a sentence to show.
 
 use serde::Serialize;
-use tauri::{AppHandle, State};
+use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
@@ -53,7 +53,18 @@ pub struct AccountView {
 pub struct OverlayView {
     champion: ChampionView,
     /// What it overrides.
-    settings: Vec<SettingRow>,
+    settings: Vec<OverrideRow>,
+}
+
+/// One setting a champion overrides.
+#[derive(Debug, Serialize)]
+pub struct OverrideRow {
+    file: String,
+    section: String,
+    key: String,
+    value: String,
+    /// What it replaces: the value in the account's base, if that is known and differs.
+    from: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -129,6 +140,7 @@ pub fn view(engine: State<Engine>) -> View {
         tracing::error!("could not list profiles: {err}");
         Vec::new()
     });
+    let base = engine.base_settings();
     View {
         status: status.label(),
         connected: status.riot_id().is_some(),
@@ -158,7 +170,21 @@ pub fn view(engine: State<Engine>) -> View {
             .into_iter()
             .map(|overlay| OverlayView {
                 champion: ChampionView::of(&engine, overlay.champion_id),
-                settings: overlay.settings.iter().map(SettingRow::of).collect(),
+                settings: overlay
+                    .settings
+                    .iter()
+                    .map(|(file, section, key, value)| OverrideRow {
+                        from: base
+                            .as_ref()
+                            .and_then(|base| base.get(file, section, key))
+                            .filter(|from| *from != value)
+                            .map(str::to_owned),
+                        file: file.to_owned(),
+                        section: section.to_owned(),
+                        key: key.to_owned(),
+                        value: value.to_owned(),
+                    })
+                    .collect(),
             })
             .collect(),
     }
@@ -536,6 +562,13 @@ pub async fn install_update(app: AppHandle, engine: State<'_, Engine>) -> Result
         tracing::warn!("could not install the update: {err}");
         "Could not update. Try again later.".to_owned()
     })
+}
+
+/// Opens the manager with its champion picker showing.
+#[tauri::command]
+pub fn add_champion(app: AppHandle) {
+    tray::show_manager(&app);
+    let _ = app.emit("add-champion", ());
 }
 
 /// Whether what mimic does unasked is announced in a popup.

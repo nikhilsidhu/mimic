@@ -84,6 +84,7 @@ pub fn run() {
             commands::check_update,
             commands::install_update,
             commands::open_manager,
+            commands::add_champion,
             commands::shows_notices,
             commands::set_shows_notices,
             commands::open_data_folder,

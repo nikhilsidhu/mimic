@@ -6,14 +6,15 @@
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Power from "@lucide/svelte/icons/power";
   import Settings from "@lucide/svelte/icons/settings";
-  import Undo2 from "@lucide/svelte/icons/undo-2";
   import Avatar from "$lib/components/avatar.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Separator } from "$lib/components/ui/separator";
   import { Switch } from "$lib/components/ui/switch";
+  import Status from "$lib/components/status.svelte";
   import * as api from "$lib/api";
+  import { DOT_LIVE, DOT_OFF, WAITING } from "$lib/tones";
 
   const MESSAGE_MS = 5000;
 
@@ -84,9 +85,18 @@
     }
   }
 
+  /** Saving: not asked for, choosing where to, or naming a new profile. */
+  let saving = $state<"closed" | "menu" | "new">("closed");
+  const saveRow = "rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50";
+
+  async function saveTo(action: () => Promise<string>) {
+    await run("save", action);
+    if (!message?.failed) saving = "closed";
+  }
+
   async function save(event: SubmitEvent) {
     event.preventDefault();
-    await run("save", () => api.saveCurrent(newName));
+    await saveTo(() => api.saveCurrent(newName));
     if (!message?.failed) newName = "";
   }
 </script>
@@ -100,7 +110,9 @@
       </p>
       <!-- What the account is doing, or why there is none. The account itself stays put
            while League is closed. -->
-      <p class="truncate text-xs text-muted-foreground">
+      <p class="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <span class="size-1.5 shrink-0 rounded-full {view?.connected ? DOT_LIVE : DOT_OFF}"></span>
+        <span class="truncate">
         {#if !view}
           Starting…
         {:else if view.connected}
@@ -108,6 +120,8 @@
         {:else}
           {view.status}
         {/if}
+      </span>
+
       </p>
     </div>
     {#if view?.account}
@@ -118,12 +132,10 @@
   </header>
 
   {#if view?.activeOverlay}
-    <div class="flex items-center gap-2 px-3 pb-2.5">
+    <div class="flex items-center gap-2 px-3 pb-2.5" title="{view.activeOverlay.name}'s own settings are on for this game">
       <img src={view.activeOverlay.icon} alt="" class="size-5 rounded-sm" />
-      <span class="min-w-0 flex-1 truncate">
-        <span class="text-foreground">{view.activeOverlay.name}</span>
-        <span class="text-muted-foreground">settings are on for this game</span>
-      </span>
+      <span class="min-w-0 truncate text-foreground">{view.activeOverlay.name}</span>
+      <Status>on now</Status>
     </div>
   {/if}
 
@@ -162,13 +174,15 @@
             {#if busy === profile.id}
               <LoaderCircle class="size-3.5 animate-spin" />
             {:else if profile.active}
-              <Check class="size-3.5" />
+              <span class="size-1.5 rounded-full {DOT_LIVE}" title="In use on this account"></span>
             {/if}
           </span>
           <span class="min-w-0 flex-1 truncate text-sm">{profile.name}</span>
-          <span class="shrink-0 text-faint">
-            {view?.pending === profile.name ? "at next login" : `${profile.settings} settings`}
-          </span>
+          {#if view?.pending === profile.name}
+            <span class="shrink-0 {WAITING}">at next login</span>
+          {:else}
+            <span class="shrink-0 text-faint">{profile.settings} settings</span>
+          {/if}
         </button>
       {:else}
         <p class="px-2 py-6 text-center text-muted-foreground">
@@ -180,18 +194,41 @@
 
   <Separator />
 
-  <form class="flex gap-1.5 p-2" onsubmit={save}>
-    <Input
-      bind:value={newName}
-      placeholder="Save current settings as…"
-      maxlength={40}
-      disabled={!view?.connected || busy !== null}
-    />
-    <Button type="submit" disabled={!view?.connected || busy !== null || !newName.trim()}>
-      {#if busy === "save"}<LoaderCircle class="animate-spin" />{/if}
-      Save
-    </Button>
-  </form>
+  {#if saving === "closed"}
+    <div class="p-2">
+      <Button class="w-full" variant="secondary" disabled={!view?.connected || busy !== null} onclick={() => (saving = "menu")}>
+        Save current settings…
+      </Button>
+    </div>
+  {:else if saving === "menu"}
+    <!-- Where this account's current settings go. -->
+    <div class="flex flex-col gap-0.5 p-1.5">
+      {#if activeProfile}
+        <button class={saveRow} disabled={busy !== null} onclick={() => saveTo(() => api.updateProfile(activeProfile.id))}>
+          <span class="block font-medium">Update {activeProfile.name}</span>
+          <span class="block text-muted-foreground">Overwrite it with what is on this account now.</span>
+        </button>
+      {/if}
+      <button class={saveRow} onclick={() => (saving = "new")}>
+        <span class="block font-medium">New profile</span>
+        <span class="block text-muted-foreground">Keep them under a name of their own.</span>
+      </button>
+      <button class={saveRow} onclick={() => leaveFor(api.addChampion)}>
+        <span class="block font-medium">For a champion</span>
+        <span class="block text-muted-foreground">Pick the champion in the manager.</span>
+      </button>
+      <Button variant="ghost" size="sm" onclick={() => (saving = "closed")}>Cancel</Button>
+    </div>
+  {:else}
+    <form class="flex gap-1.5 p-2" onsubmit={save}>
+      <Input bind:value={newName} placeholder="Profile name" maxlength={40} disabled={busy !== null} />
+      <Button type="submit" disabled={busy !== null || !newName.trim()}>
+        {#if busy === "save"}<LoaderCircle class="animate-spin" />{/if}
+        Save
+      </Button>
+      <Button type="button" variant="ghost" onclick={() => (saving = "closed")}>Cancel</Button>
+    </form>
+  {/if}
 
   {#if message}
     <p class="px-3 pb-2 leading-snug" class:text-destructive={message.failed} class:text-muted-foreground={!message.failed}>
@@ -202,15 +239,6 @@
   <Separator />
 
   <footer class="flex items-center gap-1 p-1.5">
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={!view?.connected || busy !== null}
-      onclick={() => run("undo", api.undoLast)}
-    >
-      {#if busy === "undo"}<LoaderCircle class="animate-spin" />{:else}<Undo2 />{/if}
-      Undo last apply
-    </Button>
     <span class="flex-1"></span>
     <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openLogs)} aria-label="Open logs folder" title="Open logs folder">
       <FileText />
