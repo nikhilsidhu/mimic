@@ -241,8 +241,11 @@
 			color 0.2s ease-out;
 	}
 
+	/* The glyph stays crisp and a little brighter, with a wide faint halo: a tight strong one
+	   smears the strokes and reads as blur. Looked at enlarged, with the hover forced on. */
 	&:hover svg {
-		filter: drop-shadow(0 0 0.25rem color-mix(in oklch, currentColor 65%, transparent));
+		filter: brightness(1.15) drop-shadow(0 0 0.45rem color-mix(in oklch, currentColor 55%, transparent))
+			drop-shadow(0 0 1rem color-mix(in oklch, currentColor 25%, transparent));
 	}
 
 	@media (prefers-reduced-motion: reduce) {
@@ -251,3 +254,4 @@
 		}
 	}
 }
+
