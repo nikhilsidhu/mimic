@@ -209,6 +209,35 @@ impl Engine {
         self.account()?.overlay
     }
 
+    /// Takes one setting out of a champion's overlay. The last one takes the overlay with
+    /// it. If the overlay is on right now, that setting goes back to the account's base
+    /// and everything else on the account is left as it is.
+    pub async fn remove_overlay_setting(&self, champion: u32, file: &str, section: &str, key: &str) -> Result<()> {
+        let guard = self.inner.action_lock.lock().await;
+        let Some(mut overlay) = self.inner.store.load_overlay(champion)? else { return Ok(()) };
+        if overlay.settings.remove(file, section, key).is_none() {
+            return Ok(());
+        }
+        if overlay.settings.is_empty() {
+            drop(guard);
+            return self.delete_overlay(champion).await;
+        }
+        overlay.updated = time::OffsetDateTime::now_utc();
+        self.inner.store.save_overlay(&overlay)?;
+
+        let account = self.account().filter(|account| account.overlay == Some(champion));
+        if let Some(base) = account.and_then(|account| account.baseline) {
+            if let Some(value) = base.get(file, section, key) {
+                let mut target = read_settings(&self.connection()?)?;
+                target.set(file, section, key, value);
+                self.write_settings(&target, None).await?;
+            }
+        }
+        tracing::info!(champion, key, "removed a setting from a champion overlay");
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
     /// Deletes a champion's overlay. If it is on right now, it comes off first.
     pub async fn delete_overlay(&self, champion: u32) -> Result<()> {
         let _guard = self.inner.action_lock.lock().await;

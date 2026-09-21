@@ -58,6 +58,21 @@ impl SettingsMap {
             .insert(key.to_owned(), value.to_owned());
     }
 
+    /// Removes a key, and the section and file with it once they are empty. Returns the
+    /// value it had.
+    pub fn remove(&mut self, file: &str, section: &str, key: &str) -> Option<String> {
+        let sections = self.0.get_mut(file)?;
+        let settings = sections.get_mut(section)?;
+        let removed = settings.remove(key);
+        if settings.is_empty() {
+            sections.remove(section);
+        }
+        if sections.is_empty() {
+            self.0.remove(file);
+        }
+        removed
+    }
+
     pub fn is_empty(&self) -> bool {
         self.iter().next().is_none()
     }
@@ -267,6 +282,18 @@ mod tests {
         moved.set("Input.ini", "GameEvents", "evtCastSpell1", "[Shift][F12]");
         assert!(!overlay_between(&base, &moved).is_only_volatile());
         assert!(SettingsMap::default().is_only_volatile());
+    }
+
+    #[test]
+    fn removing_the_last_key_leaves_nothing_behind() {
+        let mut settings = SettingsMap::default();
+        settings.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        settings.set("Input.ini", "GameEvents", "evtCastSpell2", "[w]");
+        assert_eq!(settings.remove("Input.ini", "GameEvents", "evtCastSpell1").as_deref(), Some("[q]"));
+        assert_eq!(settings.remove("Input.ini", "GameEvents", "evtCastSpell1"), None);
+        assert_eq!(settings.len(), 1);
+        settings.remove("Input.ini", "GameEvents", "evtCastSpell2");
+        assert_eq!(settings, SettingsMap::default());
     }
 
     #[test]

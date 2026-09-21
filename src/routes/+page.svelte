@@ -9,6 +9,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Upload from "@lucide/svelte/icons/upload";
+  import X from "@lucide/svelte/icons/x";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -271,8 +272,19 @@
                   {#if view?.activeOverlay?.id === overlay.champion.id}<Badge variant="secondary">on now</Badge>{/if}
                 </p>
                 <p class="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-muted-foreground">
-                  {#each overlay.settings as [key, value] (key)}
-                    <span class="inline-flex items-center gap-1.5">{settingLabel(key)} <Bind {value} /></span>
+                  {#each overlay.settings as setting (api.muteId(setting))}
+                    <span class="inline-flex items-center gap-1.5">
+                      {settingLabel(setting.key)} <Bind value={setting.value} />
+                      <button
+                        class="rounded p-0.5 text-faint hover:text-foreground disabled:opacity-50"
+                        disabled={busy !== null}
+                        title="Remove this setting from {overlay.champion.name}"
+                        aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
+                        onclick={() => run(id, () => api.removeOverlaySetting(overlay.champion.id, setting))}
+                      >
+                        <X class="size-3" />
+                      </button>
+                    </span>
                   {/each}
                 </p>
               </div>

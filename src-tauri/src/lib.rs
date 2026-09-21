@@ -47,6 +47,7 @@ pub fn run() {
             commands::export_profile,
             commands::import_profile,
             commands::delete_overlay,
+            commands::remove_overlay_setting,
             commands::overlay_sources,
             commands::save_overlay,
             commands::snapshots,

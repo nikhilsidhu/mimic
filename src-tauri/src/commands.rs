@@ -50,8 +50,8 @@ pub struct AccountView {
 #[serde(rename_all = "camelCase")]
 pub struct OverlayView {
     champion: ChampionView,
-    /// What it overrides, as `key` and `value`, for display.
-    settings: Vec<(String, String)>,
+    /// What it overrides.
+    settings: Vec<SettingRow>,
 }
 
 #[derive(Debug, Serialize)]
@@ -151,7 +151,7 @@ pub fn view(engine: State<Engine>) -> View {
             .into_iter()
             .map(|overlay| OverlayView {
                 champion: ChampionView::of(&engine, overlay.champion_id),
-                settings: overlay.settings.iter().map(|(_, _, key, value)| (key.to_owned(), value.to_owned())).collect(),
+                settings: overlay.settings.iter().map(SettingRow::of).collect(),
             })
             .collect(),
     }
@@ -190,18 +190,19 @@ pub struct SettingRow {
     value: String,
 }
 
+impl SettingRow {
+    fn of((file, section, key, value): (&str, &str, &str, &str)) -> Self {
+        SettingRow { file: file.to_owned(), section: section.to_owned(), key: key.to_owned(), value: value.to_owned() }
+    }
+}
+
 #[tauri::command]
 pub fn profile_details(engine: State<Engine>, id: String) -> Result<ProfileDetails, String> {
     let (profile, preview) = engine.profile_details(&id).map_err(|err| err.to_string())?;
     let settings = profile
         .settings
         .iter()
-        .map(|(file, section, key, value)| SettingRow {
-            file: file.to_owned(),
-            section: section.to_owned(),
-            key: key.to_owned(),
-            value: value.to_owned(),
-        })
+        .map(SettingRow::of)
         .collect();
     Ok(ProfileDetails { settings, preview })
 }
@@ -342,6 +343,22 @@ pub async fn save_overlay(engine: State<'_, Engine>, champion: u32, profile: Opt
 pub async fn delete_overlay(engine: State<'_, Engine>, champion: u32) -> Answer {
     engine.delete_overlay(champion).await.map_err(|err| format!("Could not delete: {err}"))?;
     Ok("Deleted".to_owned())
+}
+
+/// Takes one setting out of a champion's own settings.
+#[tauri::command]
+pub async fn remove_overlay_setting(
+    engine: State<'_, Engine>,
+    champion: u32,
+    file: String,
+    section: String,
+    key: String,
+) -> Answer {
+    engine
+        .remove_overlay_setting(champion, &file, &section, &key)
+        .await
+        .map_err(|err| format!("Could not remove that: {err}"))?;
+    Ok("Removed".to_owned())
 }
 
 #[tauri::command]

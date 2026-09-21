@@ -17,10 +17,10 @@ export type Champion = {
   mastery: number;
 };
 
-/** A champion's own settings: what it overrides, as [key, value] pairs. */
+/** A champion's own settings: what it overrides. */
 export type Overlay = {
   champion: Champion;
-  settings: [string, string][];
+  settings: SettingRow[];
 };
 
 /** Everything the tray panel and the manager display. */
@@ -114,6 +114,9 @@ export const deleteProfile = (id: string) => invoke<string>("delete_profile", { 
 export const saveOverlay = (champion: number, profile: string | null) =>
   invoke<string>("save_overlay", { champion, profile });
 export const deleteOverlay = (champion: number) => invoke<string>("delete_overlay", { champion });
+/** Takes one setting out of a champion's own settings; the last one takes the champion with it. */
+export const removeOverlaySetting = (champion: number, setting: { file: string; section: string; key: string }) =>
+  invoke<string>("remove_overlay_setting", { champion, file: setting.file, section: setting.section, key: setting.key });
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
