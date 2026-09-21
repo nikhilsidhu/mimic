@@ -2,9 +2,11 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
+  import Power from "@lucide/svelte/icons/power";
   import AccountsSection from "$lib/components/accounts-section.svelte";
   import Avatar from "$lib/components/avatar.svelte";
   import ChampionsSection from "$lib/components/champions-section.svelte";
+  import Confirm from "$lib/components/confirm.svelte";
   import ProfilesSection from "$lib/components/profiles-section.svelte";
   import SettingsSection from "$lib/components/settings-section.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
@@ -20,6 +22,8 @@
   let message = $state<{ text: string; failed: boolean } | null>(null);
   // Whether the header shows every account, not just the one in use.
   let showAccounts = $state(false);
+  /** Whether the header is asking before it quits. */
+  let quitting = $state(false);
 
   const refresh = async () => (view = await api.getView());
   /** What a section's action had to say goes into the toast. */
@@ -53,11 +57,21 @@
             </span>
           </p>
         </div>
-        <!-- The other accounts fold out of the one in use. -->
-        <Button variant="ghost" size="sm" aria-expanded={showAccounts} onclick={() => (showAccounts = !showAccounts)}>
-          Accounts
-          <ChevronRight class="transition-transform {showAccounts ? 'rotate-90' : ''}" />
-        </Button>
+        {#if quitting}
+          <!-- Quitting stops auto-apply and champion settings, so it asks first, as the tray does. -->
+          <p class="text-sm">Quit mimic?</p>
+          <Confirm action="Quit" onconfirm={api.quit} oncancel={() => (quitting = false)} />
+        {:else}
+          <!-- The other accounts fold out of the one in use. -->
+          <Button variant="ghost" size="sm" aria-expanded={showAccounts} onclick={() => (showAccounts = !showAccounts)}>
+            Accounts
+            <ChevronRight class="transition-transform {showAccounts ? 'rotate-90' : ''}" />
+          </Button>
+          <!-- Closing the window only hides it; this is how mimic is stopped from here. -->
+          <Button class="hover-danger text-muted-foreground" variant="ghost" size="icon" onclick={() => (quitting = true)} aria-label="Quit mimic" title="Quit mimic">
+            <Power />
+          </Button>
+        {/if}
       </header>
       {#if showAccounts}
         <AccountsSection onmessage={report} />
