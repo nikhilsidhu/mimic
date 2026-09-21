@@ -6,6 +6,7 @@
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as api from "$lib/api";
+  import { settingLabel } from "$lib/binds";
 
   type Props = {
     /** Decide later, or nothing is left to decide: whoever shows this puts it away. */
@@ -91,7 +92,7 @@
 
   // Measured after every change to what is shown: the list by what it holds, not by the room it got.
   $effect(() => {
-    void [drift, failure];
+    void [drift, failure, muted];
     if (!onsize || !top || !list || !bottom) return;
     tick().then(() => {
       if (!top || !list || !bottom) return;
@@ -101,10 +102,27 @@
   });
 
   const choose = (choice: api.DriftChoice) => act(async () => ondone(await api.resolveDrift(choice)));
-  // Muting the last row leaves nothing to ask; refresh then closes this.
+  /** The setting muted just now, so that it can be said and taken back on the spot. */
+  let muted = $state<{ id: string; label: string } | null>(null);
+
+  // The row goes at once, and a line says what happened, with a way back. Muting the last row
+  // leaves nothing to ask, so that is said on the way out instead.
   const mute = (change: api.Change) =>
     act(async () => {
-      await api.muteSetting(api.muteId(change));
+      const id = api.muteId(change);
+      const label = settingLabel(change.key);
+      await api.muteSetting(id);
+      const last = drift?.changes.length === 1;
+      if (last) return ondone(`Muted ${label}. Settings lists what is muted.`);
+      muted = { id, label };
+      await refresh();
+    });
+
+  const unmute = () =>
+    act(async () => {
+      if (!muted) return;
+      await api.unmuteSetting(muted.id);
+      muted = null;
       await refresh();
     });
 </script>
@@ -150,6 +168,12 @@
   <div class="mt-auto flex flex-col gap-1" bind:this={bottom}>
     {#if failure}
       <p class="pb-1 text-xs text-destructive">{failure}</p>
+    {/if}
+    {#if muted}
+      <p class="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
+        <span class="min-w-0 flex-1 truncate">Muted {muted.label}. mimic won't ask about it again.</span>
+        <button class="shrink-0 font-medium text-foreground hover:underline" onclick={unmute}>Undo</button>
+      </p>
     {/if}
     {#each choices as option, index (option.choice)}
       <button

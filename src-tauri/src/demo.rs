@@ -50,7 +50,7 @@ pub fn drift() -> Drift {
         changes: vec![
             bind("evtPlayerAttackMove", Some("[a]"), "[x]"),
             bind("evtUseVisionItem", Some("[4]"), "[c]"),
-            change("Game.cfg", "Performance", "ShowFPSAndLatency", Some("0"), "1"),
+            change("Game.cfg", "HUD", "ShowTimestamps", Some("0"), "1"),
         ],
         reset: false,
     }

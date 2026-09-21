@@ -164,11 +164,7 @@ pub fn view(engine: State<Engine>) -> View {
                 name: profile.name,
             })
             .collect(),
-        changed: if crate::demo::enabled() {
-            crate::demo::drift().changes.len()
-        } else {
-            engine.drift().ok().flatten().map_or(0, |drift| drift.changes.len())
-        },
+        changed: changes_to_review(&engine).map_or(0, |drift| drift.changes.len()),
         active_overlay: engine.active_overlay().map(|id| ChampionView::of(&engine, id)),
         overlays: engine
             .overlays()
@@ -445,16 +441,24 @@ pub async fn undo_last(engine: State<'_, Engine>) -> Answer {
     Ok(applied.describe("Restored"))
 }
 
-/// The settings the user changed on this account, if any.
-#[tauri::command]
-pub fn drift(engine: State<Engine>) -> Option<Drift> {
+/// The settings the user changed on this account and has not decided about, if any.
+fn changes_to_review(engine: &Engine) -> Option<Drift> {
+    // The demo's changes are made up, but muting one takes it off the list as it really would.
     if crate::demo::enabled() {
-        return Some(crate::demo::drift());
+        let muted = engine.muted();
+        let mut drift = crate::demo::drift();
+        drift.changes.retain(|change| !muted.contains(&engine::mute_id(change)));
+        return (!drift.changes.is_empty()).then_some(drift);
     }
     engine.drift().unwrap_or_else(|err| {
         tracing::warn!("could not check for changed settings: {err}");
         None
     })
+}
+
+#[tauri::command]
+pub fn drift(engine: State<Engine>) -> Option<Drift> {
+    changes_to_review(&engine)
 }
 
 /// The prompt about changed settings asks to be as tall as what it shows.
@@ -482,6 +486,10 @@ pub fn muted_settings(engine: State<Engine>) -> Vec<String> {
 
 #[tauri::command]
 pub async fn mute_setting(engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    // The demo has no account whose settings could be kept.
+    if crate::demo::enabled() {
+        return engine.mute(&id).map_err(|err| err.to_string());
+    }
     engine.mute_setting(&id).await.map_err(|err| format!("Could not mute that: {err}"))
 }
 

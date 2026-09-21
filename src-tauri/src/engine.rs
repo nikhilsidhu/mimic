@@ -14,7 +14,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
 pub use actions::{snapshot_id, ActionError, Announcement, Applied, Outcome};
-pub use drift::{ChampionRef, Drift, DriftChoice};
+pub use drift::{mute_id, ChampionRef, Drift, DriftChoice};
 pub use overlays::OverlaySource;
 
 use crate::champions::Champions;
