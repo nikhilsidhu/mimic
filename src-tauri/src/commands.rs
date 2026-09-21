@@ -493,7 +493,12 @@ pub fn update_status(app: AppHandle, available: State<updates::Available>) -> Up
 
 #[tauri::command]
 pub async fn check_update(app: AppHandle) -> Answer {
-    match updates::check(&app).await.map_err(|err| format!("Could not look for updates: {err}"))? {
+    // The reason is for the log; it is of no use to the user.
+    let found = updates::check(&app).await.map_err(|err| {
+        tracing::warn!("could not check for updates: {err}");
+        "Could not check for updates. Try again later.".to_owned()
+    })?;
+    match found {
         Some(version) => Ok(format!("mimic {version} is available")),
         None => Ok("mimic is up to date".to_owned()),
     }
@@ -506,7 +511,10 @@ pub async fn install_update(app: AppHandle, engine: State<'_, Engine>) -> Result
     if engine.in_game() {
         return Err("Finish your game first; mimic restarts to update.".to_owned());
     }
-    updates::install(&app).await.map_err(|err| format!("Could not update: {err}"))
+    updates::install(&app).await.map_err(|err| {
+        tracing::warn!("could not install the update: {err}");
+        "Could not update. Try again later.".to_owned()
+    })
 }
 
 /// Whether what mimic does unasked is announced in a popup.
