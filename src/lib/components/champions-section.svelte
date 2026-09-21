@@ -116,7 +116,7 @@
             >
               <Trash2 />
             </Button>
-            <Button class="-mr-1" variant="secondary" size="sm" onclick={() => (editingCard = null)}>Done</Button>
+            <Button class="-mr-1" variant="outline" size="sm" onclick={() => (editingCard = null)}>Done</Button>
           {:else}
             <Button
               class="-mr-1 pressable text-faint"

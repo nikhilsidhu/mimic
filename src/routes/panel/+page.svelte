@@ -160,7 +160,7 @@
       <span class="min-w-0 flex-1 truncate">
         {view.changed === 1 ? "1 setting" : `${view.changed} settings`} changed
       </span>
-      <Button variant="secondary" size="sm" onclick={() => (reviewing = true)}>Review</Button>
+      <Button variant="outline" size="sm" onclick={() => (reviewing = true)}>Review</Button>
     </div>
   {/if}
 
