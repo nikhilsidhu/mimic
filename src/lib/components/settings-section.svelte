@@ -88,7 +88,7 @@
   <label class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium">Notices</p>
-      <p class="text-xs text-muted-foreground">Pop up when auto-apply or a champion's settings kick in. Problems always show.</p>
+      <p class="text-xs text-muted-foreground">Pop up when settings are applied automatically.</p>
     </div>
     <Switch checked={notices} onCheckedChange={setNotices} />
   </label>
