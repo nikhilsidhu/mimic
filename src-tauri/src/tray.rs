@@ -102,11 +102,15 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
         if std::env::var_os("MIMIC_DEMO_OFFSCREEN").is_some() {
             let app = app.clone();
             tauri::async_runtime::spawn(async move {
-                // The prompt places itself in its corner once it knows its size; after that.
-                tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-                for (index, label) in ["main", PANEL, "drift"].into_iter().enumerate() {
-                    if let Some(window) = app.get_webview_window(label) {
-                        let _ = window.set_position(PhysicalPosition::new(-6000 + 1500 * index as i32, -6000));
+                // Again and again: the prompt puts itself back in its corner whenever it is fitted to
+                // what it shows, and a window that has not come up yet is shown.
+                loop {
+                    tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                    for (index, label) in ["main", PANEL, "drift"].into_iter().enumerate() {
+                        if let Some(window) = app.get_webview_window(label) {
+                            let _ = window.show();
+                            let _ = window.set_position(PhysicalPosition::new(-6000 + 1500 * index as i32, -6000));
+                        }
                     }
                 }
             });

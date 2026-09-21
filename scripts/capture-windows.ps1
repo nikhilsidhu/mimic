@@ -17,6 +17,9 @@ public static class MimicWin {
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
+  [DllImport("user32.dll")] public static extern bool GetClientRect(IntPtr h, out RECT r);
+  [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref POINT p);
+  [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 "@
@@ -53,11 +56,23 @@ foreach ($window in $script:found) {
     $hdc = $graphics.GetHdc()
     [MimicWin]::PrintWindow($h, $hdc, 2) | Out-Null
     $graphics.ReleaseHdc($hdc)
+    $graphics.Dispose()
+    # A window's rectangle includes the invisible border Windows gives it for resizing, about 8px
+    # on the left, right and bottom, and a hairline frame. The picture is trimmed to the client
+    # area, which is the page and nothing else.
+    $client = New-Object MimicWin+RECT
+    $origin = New-Object MimicWin+POINT
+    if ([MimicWin]::GetClientRect($h, [ref]$client) -and [MimicWin]::ClientToScreen($h, [ref]$origin) -and $client.R -gt 0) {
+        $visible = New-Object System.Drawing.Rectangle ($origin.X - $r.L), ($origin.Y - $r.T), $client.R, $client.B
+        $visible.Intersect((New-Object System.Drawing.Rectangle 0, 0, $width, $height))
+        $trimmed = $bitmap.Clone($visible, $bitmap.PixelFormat)
+        $bitmap.Dispose()
+        $bitmap = $trimmed
+    }
     $n++
     $path = Join-Path $OutDir "window-$n.png"
     $bitmap.Save($path)
-    $graphics.Dispose()
+    "$path  $($bitmap.Width)x$($bitmap.Height)"
     $bitmap.Dispose()
-    "$path  ${width}x${height}"
 }
 if ($n -eq 0) { "no visible mimic windows" }
