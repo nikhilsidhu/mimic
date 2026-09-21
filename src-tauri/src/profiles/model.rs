@@ -114,6 +114,9 @@ pub struct State {
     /// to them are kept on the account without a prompt.
     #[serde(default)]
     pub muted: Vec<String>,
+    /// Do not pop up notices about what mimic did unasked, such as applying at login.
+    #[serde(default)]
+    pub hide_notices: bool,
 }
 
 /// The settings as they were right before mimic changed them.

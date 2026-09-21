@@ -319,6 +319,17 @@ impl Engine {
         Ok(())
     }
 
+    /// Whether what mimic does unasked, such as applying at login, is announced.
+    pub fn shows_notices(&self) -> bool {
+        !self.inner.store.load_state().map(|state| state.hide_notices).unwrap_or_default()
+    }
+
+    pub fn set_shows_notices(&self, enabled: bool) -> Result<()> {
+        let mut state = self.inner.store.load_state()?;
+        state.hide_notices = !enabled;
+        Ok(self.inner.store.save_state(&state)?)
+    }
+
     /// Mutes a setting from the prompt about changed settings. If that leaves nothing to
     /// ask about, the prompt's job is done: a champion's overlay comes off again.
     pub async fn mute_setting(&self, id: &str) -> Result<()> {

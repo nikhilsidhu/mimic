@@ -461,6 +461,25 @@ pub fn open_manager(app: AppHandle) {
     tray::show_manager(&app);
 }
 
+/// Whether what mimic does unasked is announced in a popup.
+#[tauri::command]
+pub fn shows_notices(engine: State<Engine>) -> bool {
+    engine.shows_notices()
+}
+
+#[tauri::command]
+pub fn set_shows_notices(engine: State<Engine>, enabled: bool) -> Result<(), String> {
+    engine.set_shows_notices(enabled).map_err(|err| err.to_string())
+}
+
+/// Opens the folder with everything mimic stores: profiles, snapshots and logs.
+#[tauri::command]
+pub fn open_data_folder(app: AppHandle) -> Result<(), String> {
+    let data = platform::data_dir().ok_or("APPDATA is not set")?;
+    std::fs::create_dir_all(&data).map_err(|err| err.to_string())?;
+    app.opener().open_path(data.to_string_lossy(), None::<&str>).map_err(|err| err.to_string())
+}
+
 #[tauri::command]
 pub fn open_logs(app: AppHandle) -> Result<(), String> {
     let logs = platform::data_dir().ok_or("APPDATA is not set")?.join("logs");

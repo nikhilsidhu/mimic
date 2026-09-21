@@ -68,9 +68,14 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
     // What the engine does unasked, such as applying a profile at login, is announced.
     if let Some(mut notices) = engine.take_notices() {
         let app = app.clone();
+        let engine = engine.clone();
         tauri::async_runtime::spawn(async move {
             while let Some(announcement) = notices.recv().await {
                 match announcement {
+                    // Answers to what the user did go through `notify` and always show.
+                    Announcement::Notice(message) if !engine.shows_notices() => {
+                        tracing::info!("notice (not shown): {message}")
+                    }
                     Announcement::Notice(message) => show_notice(&app, message),
                     Announcement::Drift => show_drift_prompt(&app),
                 }

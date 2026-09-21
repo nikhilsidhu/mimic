@@ -10,6 +10,7 @@
   let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
 
   let autostart = $state(false);
+  let notices = $state(true);
   let install = $state<string | null>(null);
 
   // Settings muted from the prompt about changed settings, as `file/section/key`.
@@ -20,6 +21,7 @@
 
   onMount(() => {
     api.getAutostart().then((enabled) => (autostart = enabled));
+    api.getShowsNotices().then((enabled) => (notices = enabled));
     refreshInstall();
     refreshMuted();
     // mimic picks a chosen folder up within seconds; the view changes when it does.
@@ -37,6 +39,15 @@
       onmessage(String(err), true);
     }
     refreshInstall();
+  }
+
+  async function setNotices(enabled: boolean) {
+    try {
+      await api.setShowsNotices(enabled);
+    } catch (err) {
+      onmessage(String(err), true);
+    }
+    notices = await api.getShowsNotices();
   }
 
   async function unmute(id: string) {
@@ -70,6 +81,13 @@
     </div>
     <Switch checked={autostart} onCheckedChange={setAutostart} />
   </label>
+  <label class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium">Notices</p>
+      <p class="text-xs text-muted-foreground">Pop up when mimic applies something by itself.</p>
+    </div>
+    <Switch checked={notices} onCheckedChange={setNotices} />
+  </label>
   <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium">League folder</p>
@@ -78,6 +96,13 @@
       </p>
     </div>
     <Button variant="outline" size="sm" onclick={chooseInstall}>Choose…</Button>
+  </div>
+  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium">Data</p>
+      <p class="text-xs text-muted-foreground">Profiles, history and logs, as plain files.</p>
+    </div>
+    <Button variant="outline" size="sm" onclick={() => api.openDataFolder()}>Open folder</Button>
   </div>
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">

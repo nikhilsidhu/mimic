@@ -124,11 +124,16 @@ export const muteId = (change: { file: string; section: string; key: string }) =
 export const getMutedSettings = () => invoke<string[]>("muted_settings");
 export const muteSetting = (id: string) => invoke<void>("mute_setting", { id });
 export const unmuteSetting = (id: string) => invoke<void>("unmute_setting", { id });
-export const copyRiotId =() => invoke<string>("copy_riot_id");
+export const copyRiotId = () => invoke<string>("copy_riot_id");
 
 export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
 export const openManager = () => invoke<void>("open_manager");
 export const openLogs = () => invoke<void>("open_logs");
+/** Opens the folder with everything mimic stores. */
+export const openDataFolder = () => invoke<void>("open_data_folder");
+/** Whether what mimic does by itself, such as applying at login, pops up a notice. */
+export const getShowsNotices = () => invoke<boolean>("shows_notices");
+export const setShowsNotices = (enabled: boolean) => invoke<void>("set_shows_notices", { enabled });
 /** Shows a sentence in the notice popup next to the tray. */
 export const notify = (message: string) => invoke<void>("notify", { message });
 /** Closes the tray panel. */
