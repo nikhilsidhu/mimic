@@ -106,7 +106,7 @@
                only once asked for. Nothing depends on hovering. -->
           {#if editingCard === overlay.champion.id}
             <Button
-              class="text-muted-foreground"
+              class="hover-danger text-muted-foreground"
               variant="ghost"
               size="icon-sm"
               onclick={() => (deleting = id)}

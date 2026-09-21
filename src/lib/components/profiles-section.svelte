@@ -183,6 +183,7 @@
             <Download />
           </Button>
           <Button
+            class="hover-danger"
             variant="ghost"
             size="icon"
             onclick={() => (editing = { id: profile.id, mode: "delete", name: profile.name })}

@@ -33,6 +33,10 @@
 	--live: oklch(0.52 0.12 135);
 	/* What awaits something: a profile queued for the next login, a profile that was edited. */
 	--waiting: oklch(0.55 0.13 70);
+	/* What a button turns to under the pointer: its text or icon, and an outlined button's
+	   border, never a fill. A terracotta, chosen next to the moss from seven warm shades tried in
+	   the running app. Deleting turns red instead. */
+	--hover: oklch(0.53 0.13 40);
 	/* A soft grey page with lighter surfaces on it: pure white everywhere was glaring. */
 	--background: oklch(0.945 0 0);
 	--foreground: oklch(0.145 0 0);
@@ -73,6 +77,7 @@
 	color-scheme: dark;
 	--live: oklch(0.64 0.12 135);
 	--waiting: oklch(0.78 0.14 75);
+	--hover: oklch(0.63 0.13 40);
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.205 0 0);
@@ -116,6 +121,7 @@
 	--color-faint: var(--faint);
 	--color-live: var(--live);
 	--color-waiting: var(--waiting);
+	--color-hover: var(--hover);
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -217,4 +223,10 @@
 @utility eyebrow {
 	/* The small capitals over a list. */
 	@apply text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase;
+}
+
+/* Deleting warns rather than highlights: red under the pointer, where other buttons take the
+   hover colour. */
+@utility hover-danger {
+	@apply hover:text-destructive;
 }
