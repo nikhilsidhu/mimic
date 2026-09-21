@@ -64,7 +64,10 @@ const LOGIN_SETTLE: Duration = Duration::from_secs(5);
 /// Something the engine wants the user to see without having been asked.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Announcement {
+    /// Something mimic did by itself. The user can turn these off.
     Notice(String),
+    /// Something that went wrong, in full or in part. Always shown.
+    Problem(String),
     /// Settings changed; [`Engine::drift`] has the details.
     Drift,
 }
@@ -177,7 +180,7 @@ impl Engine {
         // (it was seen flipping the push-to-talk key and back), and reading in between
         // looks like the user changed something.
         tokio::time::sleep(LOGIN_SETTLE).await;
-        let result: Result<Option<String>> = async {
+        let result: Result<Option<Announcement>> = async {
             let _guard = self.inner.action_lock.lock().await;
             let connection = self.connection()?;
             let mut current = read_settings(&connection)?;
@@ -253,24 +256,24 @@ impl Engine {
             let applied = self.apply_now(&profile).await?;
             // Nothing to say when the account was already up to date.
             Ok((applied != Applied::default()).then(|| {
-                let refused = match applied.stuck.len() {
-                    0 => String::new(),
-                    count => format!(", League refused {count}"),
-                };
-                format!("Applied '{}' to {riot_id}: {} settings changed{refused}", profile.name, applied.changed)
+                let said = format!("Applied '{}' to {riot_id}: {} settings changed", profile.name, applied.changed);
+                match applied.stuck.len() {
+                    0 => Announcement::Notice(said),
+                    count => Announcement::Problem(format!("{said}, League refused {count}")),
+                }
             }))
         }
         .await;
 
         match result {
-            Ok(Some(message)) => drop(self.inner.notices.send(Announcement::Notice(message))),
+            Ok(Some(announcement)) => drop(self.inner.notices.send(announcement)),
             Ok(None) => {}
             // Logged out again before the settings had settled: nothing to report.
             Err(ActionError::NotConnected) => tracing::debug!("the account went away during login"),
             Err(err) => {
                 tracing::warn!("could not apply at login: {err}");
                 let message = format!("{riot_id}: could not apply your profile: {err}");
-                let _ = self.inner.notices.send(Announcement::Notice(message));
+                let _ = self.inner.notices.send(Announcement::Problem(message));
             }
         }
         self.inner.changed.send_modify(|revision| *revision += 1);

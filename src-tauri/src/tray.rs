@@ -76,7 +76,7 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
                     Announcement::Notice(message) if !engine.shows_notices() => {
                         tracing::info!("notice (not shown): {message}")
                     }
-                    Announcement::Notice(message) => show_notice(&app, message),
+                    Announcement::Notice(message) | Announcement::Problem(message) => show_notice(&app, message),
                     Announcement::Drift => show_drift_prompt(&app),
                 }
             }
