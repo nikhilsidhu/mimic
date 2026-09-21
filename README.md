@@ -44,7 +44,7 @@ mimic is new, so if something looks off, please [open an issue](https://github.c
 - Shows a change log of exactly which settings each change altered, with keybinds drawn as keys.
 - Notices when Riot resets your settings after a patch and offers to put yours back.
 - Exports and imports profiles as single files.
-- Lets you mute settings you flip with hotkeys, like the FPS counter, so it stops asking about them. Changes to them are kept.
+- Lets you mute settings you flip with hotkeys, like the FPS counter, so it stops asking about them.
 - Black, dark and light themes.
 - Lives in the tray. One panel for everyday use, a manager window for the rest.
 
