@@ -180,3 +180,8 @@ export const duplicateProfile = (id: string) => invoke<string>("duplicate_profil
 /** Whether mimic starts with Windows. */
 export const getAutostart = () => invoke<boolean>("autostart");
 export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", { enabled });
+
+/** The League folder in use, or null while none has been found. */
+export const getInstallPath = () => invoke<string | null>("install_path");
+/** Asks for the League folder. Resolves to null when the dialog is cancelled. */
+export const chooseInstall = () => invoke<string | null>("choose_install");

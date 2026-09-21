@@ -59,6 +59,8 @@ pub fn run() {
             commands::drift,
             commands::resolve_drift,
             commands::copy_riot_id,
+            commands::install_path,
+            commands::choose_install,
             commands::autostart,
             commands::set_autostart,
             commands::open_manager,

@@ -412,6 +412,21 @@ pub fn copy_riot_id(app: AppHandle, engine: State<Engine>) -> Answer {
     Ok(format!("Copied {riot_id}"))
 }
 
+/// The League folder in use, if one has been found.
+#[tauri::command]
+pub fn install_path(engine: State<Engine>) -> Option<String> {
+    engine.install_path().map(|path| path.to_string_lossy().into_owned())
+}
+
+/// Asks for the League folder and uses it. `Ok(None)` when the user cancels.
+#[tauri::command]
+pub async fn choose_install(app: AppHandle, engine: State<'_, Engine>) -> Result<Option<String>, String> {
+    let chosen = app.dialog().file().set_title("Choose the League of Legends folder").blocking_pick_folder();
+    let Some(folder) = chosen.and_then(|path| path.into_path().ok()) else { return Ok(None) };
+    engine.choose_install(&folder)?;
+    Ok(Some(format!("Using {}", folder.display())))
+}
+
 /// Whether mimic starts with Windows.
 #[tauri::command]
 pub fn autostart(app: AppHandle) -> bool {

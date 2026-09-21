@@ -107,6 +107,9 @@ pub struct State {
     /// The account last logged in, to show while League is closed.
     #[serde(default)]
     pub last_account: Option<String>,
+    /// The League folder the user chose, for installs that detection does not find.
+    #[serde(default)]
+    pub install_path: Option<String>,
 }
 
 /// The settings as they were right before mimic changed them.

@@ -115,6 +115,8 @@ struct Inner {
     connection: Mutex<Option<Connection>>,
     /// The champion of the current or most recent game, for saving changes to it.
     last_champion: Mutex<Option<u32>>,
+    /// The League install in use, once one is found.
+    install: Mutex<Option<LeagueInstall>>,
     /// Whether Riot reset the account's settings, as reported at login (a patch does
     /// that). Cleared once the user has settled what to do about it.
     reset: Mutex<bool>,
@@ -144,6 +146,7 @@ impl Engine {
             champions,
             connection: Mutex::new(None),
             last_champion: Mutex::new(None),
+            install: Mutex::new(None),
             reset: Mutex::new(false),
             action_lock: tokio::sync::Mutex::new(()),
             changed: watch::channel(0).0,
@@ -160,6 +163,23 @@ impl Engine {
         &self.inner.champions
     }
 
+    /// The League folder in use, if one has been found.
+    pub fn install_path(&self) -> Option<std::path::PathBuf> {
+        self.inner.install.lock().unwrap().as_ref().map(|install| install.root().to_owned())
+    }
+
+    /// Uses `folder` as the League install from now on. It has to hold the client. If
+    /// mimic was still looking for an install it picks this one up within seconds;
+    /// replacing one that is in use takes effect at the next start.
+    pub fn choose_install(&self, folder: &std::path::Path) -> Result<(), String> {
+        let install = LeagueInstall::at(folder).ok_or("That folder has no LeagueClient.exe in it")?;
+        let mut state = self.inner.store.load_state().map_err(|err| err.to_string())?;
+        state.install_path = Some(install.root().to_string_lossy().into_owned());
+        self.inner.store.save_state(&state).map_err(|err| err.to_string())?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
     /// Fires whenever profiles or the active profile change.
     pub fn changes(&self) -> watch::Receiver<u64> {
         self.inner.changed.subscribe()
@@ -174,15 +194,20 @@ impl Engine {
 
 async fn run(status: watch::Sender<Status>, engine: Engine) {
     let inner = &engine.inner;
+    // A folder the user chose wins over detection. While there is none, keep looking: the
+    // user may pick one in the manager at any moment.
     let install = loop {
-        match LeagueInstall::detect() {
+        let chosen = inner.store.load_state().ok().and_then(|state| state.install_path).and_then(LeagueInstall::at);
+        match chosen.or_else(LeagueInstall::detect) {
             Some(install) => break install,
             None => {
                 status.send_replace(Status::NoInstall);
-                sleep(Duration::from_secs(10)).await;
+                sleep(Duration::from_secs(2)).await;
             }
         }
     };
+    *inner.install.lock().unwrap() = Some(install.clone());
+    inner.changed.send_modify(|revision| *revision += 1);
     tracing::info!(install = %install.root().display(), "found League install");
 
     loop {
