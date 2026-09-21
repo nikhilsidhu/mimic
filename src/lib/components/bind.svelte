@@ -8,7 +8,9 @@
   let { value }: { value: string | null } = $props();
 
   const chords = $derived(parseBind(value));
-  const KEY = "h-[1.375rem] min-w-[1.375rem] rounded-sm px-1.5 text-xs";
+  // Keys are set in the system font: in the monospace one a W is squeezed into a single cell
+  // and is a blob at this size.
+  const KEY = "h-[1.375rem] min-w-[1.375rem] rounded-sm px-1.5 font-[system-ui] text-xs font-semibold";
 </script>
 
 {#if chords.length === 0}

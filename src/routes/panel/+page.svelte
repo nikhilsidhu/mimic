@@ -146,7 +146,7 @@
     </div>
     {#if view?.account}
       <Button variant="ghost" size="icon" onclick={copy} aria-label="Copy Riot ID" title="Copy Riot ID">
-        {#if copied}<Check class="text-emerald-500" />{:else}<Copy />{/if}
+        {#if copied}<Check class="text-live" />{:else}<Copy />{/if}
       </Button>
     {/if}
   </header>
