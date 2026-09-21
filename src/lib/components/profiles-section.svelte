@@ -3,6 +3,7 @@
   import { tick } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CopyPlus from "@lucide/svelte/icons/copy-plus";
+  import Diff from "@lucide/svelte/icons/diff";
   import Download from "@lucide/svelte/icons/download";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Save from "@lucide/svelte/icons/save";
@@ -124,17 +125,17 @@
           <span class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
+            <!-- How far it is from what is on the logged-in account; nothing when they match. -->
+            {#if profile.differs}
+              <Status dot={false} title="Applying it would change {profile.differs} settings on this account">
+                <Diff class="size-2.5" />{profile.differs}
+              </Status>
+            {/if}
           </span>
           {#if view?.pending === profile.name}
             <span class="mt-0.5 block text-xs {WAITING}">Applies at next login</span>
           {:else}
-            <!-- How it compares with the logged-in account, so that it need not be opened to find out. -->
-            <span class="mt-0.5 block text-xs text-faint">
-              {profile.settings} settings{#if profile.differs === 0}{" · "}in sync{:else if profile.differs}{" · "}<span
-                  class="text-muted-foreground"
-                  title="Applying it would change {profile.differs} settings on this account">{profile.differs} differ</span
-                >{/if}
-            </span>
+            <span class="mt-0.5 block text-xs text-faint">{profile.settings} settings</span>
           {/if}
         </button>
         <!-- Always there, so that nobody has to find them by hovering, but faint until the row is
