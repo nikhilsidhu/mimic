@@ -1,4 +1,5 @@
-<!-- Every account mimic has seen: which profile it is on, and whether it auto-applies. -->
+<!-- Every account mimic has seen: which profile it is on, and whether it auto-applies. It
+     folds out of the manager's header, which shows the account in use. -->
 <script lang="ts">
   import { onMount } from "svelte";
   import Trash2 from "@lucide/svelte/icons/trash-2";
@@ -39,13 +40,6 @@
     refresh();
   }
 </script>
-
-<header class="pt-2">
-  <h2 class="text-lg font-semibold tracking-tight">Accounts</h2>
-  <p class="text-sm text-muted-foreground">
-    Which profile each account is on.
-  </p>
-</header>
 
 <section class="overflow-hidden rounded-lg border border-border">
   {#each accounts as account, index (account.puuid)}

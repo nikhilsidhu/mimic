@@ -42,6 +42,8 @@
   let unfolded = $state<number[]>([]);
   // The champion whose card shows its remove and delete buttons.
   let editingCard = $state<number | null>(null);
+  // Whether the header shows every account, not just the one in use.
+  let showAccounts = $state(false);
   // With this many champions a filter appears.
   const FILTER_FROM = 9;
   let championFilter = $state("");
@@ -130,10 +132,17 @@
                 {view.status}
               {/if}
             </span>
-
           </p>
         </div>
+        <!-- The other accounts fold out of the one in use. -->
+        <Button variant="ghost" size="sm" aria-expanded={showAccounts} onclick={() => (showAccounts = !showAccounts)}>
+          Accounts
+          <ChevronRight class="transition-transform {showAccounts ? 'rotate-90' : ''}" />
+        </Button>
       </header>
+      {#if showAccounts}
+        <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
+      {/if}
 
       <header class="flex items-end justify-between gap-4 pt-2">
         <div>
@@ -260,8 +269,6 @@
           </p>
         {/each}
       </section>
-
-      <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
 
       <header id="champions" class="flex scroll-mt-4 items-end justify-between gap-4 pt-2">
         <div>
