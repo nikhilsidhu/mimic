@@ -16,7 +16,7 @@
   import { Input } from "$lib/components/ui/input";
   import * as api from "$lib/api";
   import { attempt, type Report } from "$lib/attempt";
-  import { WAITING } from "$lib/tones";
+  import { DOT_WAITING, WAITING } from "$lib/tones";
 
   type Props = { view: api.View | null; onmessage: Report; onchanged: () => void };
   let { view, onmessage, onchanged }: Props = $props();
@@ -124,22 +124,26 @@
           <span class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
-            <!-- A state, as a game's graphics preset turns to "Custom" and a Mac document to
-                 "Edited": only the profile in use can be edited, the others differ by design.
-                 How much is said where it matters, on Apply and in the opened profile. -->
-            {#if profile.active && profile.differs}
-              <Status
-                tone="waiting"
-                title="{profile.differs === 1 ? '1 setting' : `${profile.differs} settings`} on this account no longer match {profile.name}. Open it to see which."
-              >
-                edited
-              </Status>
-            {/if}
           </span>
           {#if view?.pending === profile.name}
             <span class="mt-0.5 block text-xs {WAITING}">Applies at next login</span>
           {:else}
-            <span class="mt-0.5 block text-xs text-faint">{profile.settings} settings</span>
+            <!-- A state on the profile in use, as a document has unsaved changes: the others differ
+                 from the account by design. Either the account was changed since the profile was
+                 applied, or the profile was, from another account. -->
+            <span class="mt-0.5 flex items-center gap-1.5 text-xs text-faint">
+              {profile.settings} settings
+              {#if profile.active && (view?.changed || profile.differs)}
+                <span
+                  class="flex items-center gap-1.5 text-muted-foreground"
+                  title={view?.changed
+                    ? `Settings changed on this account since ${profile.name} was applied. Save them, or review them from the tray.`
+                    : `${profile.name} has changed since it was applied to this account. Apply it to catch up.`}
+                >
+                  · <span class="size-1.5 rounded-full {DOT_WAITING}"></span>{view?.changed ? "unsaved changes" : "not applied"}
+                </span>
+              {/if}
+            </span>
           {/if}
         </button>
         <!-- Always there, so that nobody has to find them by hovering, but faint until the row is

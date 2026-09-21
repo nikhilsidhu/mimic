@@ -61,7 +61,7 @@
     <!-- How many would change is said on the profile's row; here is which. -->
     {#if details.preview?.length}
       <div>
-        <p class="mb-1.5 flex h-6 items-center {heading}">Differs from this account</p>
+        <p class="mb-1.5 flex h-6 items-center {heading}" title="What applying this profile would change on this account">Changes</p>
         <div class="max-h-56 overflow-y-auto rounded-md border border-border">
           <ChangeList changes={details.preview} />
         </div>
