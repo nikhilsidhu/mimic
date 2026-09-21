@@ -110,10 +110,14 @@
   /** The order rows first appeared in, by id, so that muting one moves nothing. */
   let order = $state<string[]>([]);
 
-  // What is still to decide, with the muted rows back where they were.
-  const rows = $derived(
-    [...(drift?.changes ?? []), ...muted].sort((a, b) => order.indexOf(api.muteId(a)) - order.indexOf(api.muteId(b))),
-  );
+  // What is still to decide, with the muted rows back where they were. A row muted a moment ago
+  // is still among the changes until they have been read again, and must not be listed twice:
+  // the list is keyed, and a duplicate key stops it rendering.
+  const rows = $derived.by(() => {
+    const off = new Set(muted.map(api.muteId));
+    const open = (drift?.changes ?? []).filter((change) => !off.has(api.muteId(change)));
+    return [...open, ...muted].sort((a, b) => order.indexOf(api.muteId(a)) - order.indexOf(api.muteId(b)));
+  });
 
   const mute = (change: api.Change) =>
     act(async () => {
@@ -125,8 +129,10 @@
   const unmute = (change: api.Change) =>
     act(async () => {
       await api.unmuteSetting(api.muteId(change));
-      muted = muted.filter((row) => api.muteId(row) !== api.muteId(change));
+      // Read again first: the row is then among the changes before it leaves the muted ones,
+      // so it never drops out of the list in between.
       await refresh();
+      muted = muted.filter((row) => api.muteId(row) !== api.muteId(change));
     });
 </script>
 
