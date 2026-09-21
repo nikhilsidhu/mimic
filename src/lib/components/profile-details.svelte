@@ -6,13 +6,15 @@
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as api from "$lib/api";
-  import { isBind, settingLabel } from "$lib/binds";
+  import { isBind, isBound, sectionLabel, settingLabel, valueLabel } from "$lib/binds";
 
   let { id }: { id: string } = $props();
 
   let details = $state<api.ProfileDetails | null>(null);
   let failure = $state<string | null>(null);
   let filter = $state("");
+  /** Most keys a profile lists are bound to nothing; they stay out of the way until asked for. */
+  let showUnbound = $state(false);
 
   async function refresh() {
     try {
@@ -28,11 +30,28 @@
     return api.onViewChanged(refresh);
   });
 
-  const shown = $derived(
-    (details?.settings ?? []).filter((row) =>
-      `${row.section} ${row.key} ${settingLabel(row.key)} ${row.value}`.toLowerCase().includes(filter.trim().toLowerCase()),
-    ),
-  );
+  const wanted = $derived(filter.trim().toLowerCase());
+  // Found by the name shown as well as Riot's own, so that either can be typed.
+  const matches = (row: api.SettingRow) =>
+    `${sectionLabel(row.section)} ${settingLabel(row.key)} ${row.section} ${row.key} ${row.value}`.toLowerCase().includes(wanted);
+
+  const binds = $derived((details?.settings ?? []).filter(isBind));
+  const unbound = $derived(binds.filter((row) => !isBound(row.value)).length);
+  const shownBinds = $derived(binds.filter((row) => matches(row) && (showUnbound || wanted !== "" || isBound(row.value))));
+
+  /** Everything that is not a keybind, under the heading League's menus would put it. */
+  const groups = $derived.by(() => {
+    const byHeading = new Map<string, api.SettingRow[]>();
+    for (const row of details?.settings ?? []) {
+      if (isBind(row) || !matches(row)) continue;
+      const heading = sectionLabel(row.section);
+      byHeading.set(heading, [...(byHeading.get(heading) ?? []), row]);
+    }
+    return [...byHeading].sort(([a], [b]) => a.localeCompare(b));
+  });
+  const others = $derived(groups.reduce((total, [, rows]) => total + rows.length, 0));
+
+  const heading = "pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase";
 </script>
 
 <div class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3">
@@ -40,7 +59,7 @@
     <p class="text-xs text-destructive">{failure}</p>
   {:else if details}
     <div>
-      <p class="pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
+      <p class={heading}>
         {#if details.preview === null}
           Log into League to see what applying would change
         {:else if details.preview.length === 0}
@@ -56,30 +75,50 @@
       {/if}
     </div>
 
-    <div>
-      <div class="flex items-center gap-2 pb-1">
-        <p class="flex-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">
-          All {details.settings.length} settings
-        </p>
-        <Input class="h-6 w-40" bind:value={filter} placeholder="Filter…" />
-      </div>
-      <ScrollArea class="h-48 rounded-md border border-border bg-background">
-        <ul class="divide-y divide-border text-xs">
-          {#each shown as row (row.file + row.section + row.key)}
-            <li class="flex items-center gap-2 px-2.5 py-1">
-              <span class="w-24 shrink-0 truncate text-faint">{row.section}</span>
-              <span class="min-w-0 flex-1 truncate">{settingLabel(row.key)}</span>
-              {#if isBind(row)}
+    <div class="flex items-center gap-3">
+      <Input class="h-6 w-48" bind:value={filter} placeholder="Filter settings…" />
+      <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <input type="checkbox" class="accent-emerald-600" bind:checked={showUnbound} />
+        Show {unbound} unbound keys
+      </label>
+    </div>
+
+    <!-- Keys on one side, everything else on the other, so that neither is a list of hundreds. -->
+    <div class="grid gap-3 min-[720px]:grid-cols-2">
+      <div class="min-w-0">
+        <p class={heading}>Keys · {shownBinds.length}</p>
+        <ScrollArea class="h-64 rounded-md border border-border bg-background">
+          <ul class="divide-y divide-border text-xs">
+            {#each shownBinds as row (row.file + row.section + row.key)}
+              <li class="flex min-h-8 items-center gap-2 px-2.5" title="{row.section} / {row.key}">
+                <span class="min-w-0 flex-1 truncate">{settingLabel(row.key)}</span>
                 <Bind value={row.value} />
-              {:else}
-                <span class="shrink-0 text-muted-foreground">{row.value || "none"}</span>
-              {/if}
-            </li>
+              </li>
+            {:else}
+              <li class="px-2.5 py-4 text-center text-faint">No match.</li>
+            {/each}
+          </ul>
+        </ScrollArea>
+      </div>
+
+      <div class="min-w-0">
+        <p class={heading}>Other settings · {others}</p>
+        <ScrollArea class="h-64 rounded-md border border-border bg-background">
+          {#each groups as [name, rows] (name)}
+            <p class="sticky top-0 border-b border-border bg-background px-2.5 py-1 text-xs font-medium">{name}</p>
+            <ul class="divide-y divide-border text-xs">
+              {#each rows as row (row.file + row.section + row.key)}
+                <li class="flex min-h-7 items-center gap-2 px-2.5" title="{row.section} / {row.key}">
+                  <span class="min-w-0 flex-1 truncate text-muted-foreground">{settingLabel(row.key)}</span>
+                  <span class="shrink-0">{valueLabel(row.key, row.value)}</span>
+                </li>
+              {/each}
+            </ul>
           {:else}
-            <li class="px-2.5 py-4 text-center text-faint">No match.</li>
+            <p class="px-2.5 py-4 text-center text-xs text-faint">No match.</p>
           {/each}
-        </ul>
-      </ScrollArea>
+        </ScrollArea>
+      </div>
     </div>
   {/if}
 </div>

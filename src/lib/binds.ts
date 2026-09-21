@@ -88,7 +88,9 @@ const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(
 
 /** `ShowFPSAndLatency` becomes "Show FPS and latency". */
 function words(name: string): string {
-  const spaced = name.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
+  const spaced = name
+    .replace(/_/g, " ")
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2");
   const lowered = spaced.split(" ").map((word) => (/^[A-Z0-9]+$/.test(word) ? word : word.toLowerCase()));
   const sentence = lowered.join(" ");
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
@@ -113,3 +115,44 @@ export function settingLabel(key: string): string {
   if (ping) return `Ping: ${words(ping[1]).toLowerCase()}`;
   return words(name);
 }
+
+/** What League's menus call the groups that settings are stored in. */
+const SECTIONS: Record<string, string> = {
+  Accessibility: "Colour adjustments",
+  Chat: "Chat",
+  ColorPalette: "Colour blind mode",
+  FloatingText: "Combat text",
+  General: "Game",
+  HUD: "Interface",
+  HUDEvents: "Interface keys",
+  ItemShop: "Shop",
+  LossOfControl: "Loss of control",
+  Performance: "Performance",
+  Quickbinds: "Quick cast",
+  Replay: "Replays",
+  ShopEvents: "Shop keys",
+  TFTChat: "Teamfight Tactics",
+  TFTHUD: "Teamfight Tactics",
+  Voice: "Voice chat",
+  Volume: "Sound",
+  GameEvents: "Keybinds",
+};
+
+/** A group of settings by the name a person would know it by. */
+export const sectionLabel = (section: string) => SECTIONS[section] ?? words(section);
+
+/** Names that say a setting is a switch, so that its 1 or 0 can be read as on or off. */
+const SWITCH = /^(Show|Hide|Enable|Disable|Auto|Use|Flash|Snap|Scroll|Is)|(_?Enabled|Mute|Pinned|smart|Lock|Filter)$/;
+
+/** A value as a person would read it: on and off, a volume as a percentage, no trailing zeros. */
+export function valueLabel(key: string, value: string): string {
+  if (value === "") return "none";
+  if ((value === "1" || value === "0") && SWITCH.test(key)) return value === "1" ? "On" : "Off";
+  const number = Number(value);
+  if (!/^-?\d+\.\d+$/.test(value) || Number.isNaN(number)) return value;
+  if (/Volume$/.test(key) && number >= 0 && number <= 1) return `${Math.round(number * 100)}%`;
+  return String(Number(number.toFixed(2)));
+}
+
+/** Whether a keybind's value binds any key at all. */
+export const isBound = (value: string | null) => parseBind(value).length > 0;
