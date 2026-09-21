@@ -45,7 +45,7 @@
         <Confirm action="Forget" onconfirm={() => forget(account)} oncancel={() => (forgetting = null)} />
       {:else}
         <div class="min-w-0 flex-1">
-          <p class="flex items-center gap-2 truncate text-sm font-medium">
+          <p class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {account.name}
             {#if account.connected}<Status>logged in</Status>{/if}
           </p>

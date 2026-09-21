@@ -54,15 +54,15 @@
   const heading = "text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase";
 </script>
 
-<div class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3">
+<div class="flex flex-col gap-3 border-t border-border px-4 pt-3 pb-4">
   {#if failure}
     <p class="text-xs text-destructive">{failure}</p>
   {:else if details}
     <!-- How many would change is said on the profile's row; here is which. -->
     {#if details.preview?.length}
       <div>
-        <p class="pb-1 {heading}">Would change</p>
-        <div class="max-h-56 overflow-y-auto rounded-md border border-border bg-background">
+        <p class="mb-1.5 flex h-6 items-center {heading}">Differs from this account</p>
+        <div class="max-h-56 overflow-y-auto rounded-md border border-border">
           <ChangeList changes={details.preview} />
         </div>
       </div>
@@ -72,14 +72,14 @@
     <div class="grid grid-cols-2 gap-3">
       <div class="min-w-0">
         <!-- What only concerns the keys sits in their heading: most are bound to nothing. -->
-        <div class="flex h-6 items-center gap-2 pb-1">
+        <div class="mb-1.5 flex h-6 items-center gap-2">
           <p class="flex-1 {heading}">Keys · {shownBinds.length}</p>
-          <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input type="checkbox" class="accent-emerald-600" bind:checked={showUnbound} />
+          <label class="flex items-center gap-1.5 {heading}">
+            <input type="checkbox" class="size-3 accent-live" bind:checked={showUnbound} />
             {unbound} unbound
           </label>
         </div>
-        <ScrollArea class="h-64 rounded-md border border-border bg-background">
+        <ScrollArea class="h-64 rounded-md border border-border">
           <ul class="divide-y divide-border text-xs">
             {#each shownBinds as row (row.file + row.section + row.key)}
               <li class="flex min-h-8 items-center gap-2 px-2.5" title="{row.section} / {row.key}">
@@ -95,11 +95,11 @@
 
       <div class="min-w-0">
         <!-- The filter narrows both lists; it sits where a search usually does, at the far end. -->
-        <div class="flex h-6 items-center gap-2 pb-1">
+        <div class="mb-1.5 flex h-6 items-center gap-2">
           <p class="flex-1 {heading}">Other settings · {others}</p>
-          <Input class="h-5 w-32 text-xs" bind:value={filter} placeholder="Filter…" />
+          <Input class="h-6 w-36" bind:value={filter} placeholder="Filter…" />
         </div>
-        <ScrollArea class="h-64 rounded-md border border-border bg-background">
+        <ScrollArea class="h-64 rounded-md border border-border">
           {#each groups as [name, rows] (name)}
             <p class="sticky top-0 border-b border-border bg-background px-2.5 py-1 text-xs font-medium">{name}</p>
             <ul class="divide-y divide-border text-xs">

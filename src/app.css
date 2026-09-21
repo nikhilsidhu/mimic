@@ -27,6 +27,9 @@
 
 :root {
 	color-scheme: light;
+	/* What is on or in use right now: the dot of a status, a switch that is on. One colour,
+	   here, so that it can be changed in one place. */
+	--live: oklch(0.58 0.14 245);
 	/* A soft grey page with lighter surfaces on it: pure white everywhere was glaring. */
 	--background: oklch(0.945 0 0);
 	--foreground: oklch(0.145 0 0);
@@ -65,6 +68,7 @@
 
 .dark {
 	color-scheme: dark;
+	--live: oklch(0.72 0.13 245);
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.205 0 0);
@@ -106,6 +110,7 @@
 	/* Third text colour: dates, counts, anything read only when looked for. A solid grey
 	   rather than white at reduced opacity, which reads as disabled. */
 	--color-faint: var(--faint);
+	--color-live: var(--live);
 	--color-sidebar-ring: var(--sidebar-ring);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -187,4 +192,11 @@
    while it is scrolled to either end. */
 .fade-edges {
 	mask-image: linear-gradient(to bottom, transparent, black 1.25rem, black calc(100% - 1.75rem), transparent);
+}
+
+/* Plain scrolling boxes get a thin scrollbar in the theme's own colours. The browser's default
+   is a wide light-grey bar, the brightest thing on a dark page. */
+* {
+	scrollbar-width: thin;
+	scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
 }

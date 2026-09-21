@@ -29,6 +29,17 @@
   let opened = $state<string | null>(null);
   let renameInput = $state<HTMLInputElement | null>(null);
 
+  // Development only: `VITE_OPEN_PROFILE=1` starts with the first profile opened, for looking
+  // at that view and taking screenshots of it without a click.
+  let openedForDemo = false;
+  $effect(() => {
+    const first = view?.profiles[0];
+    if (import.meta.env.VITE_OPEN_PROFILE && first && !openedForDemo) {
+      openedForDemo = true;
+      opened = first.id;
+    }
+  });
+
   async function run(id: string, action: () => Promise<string>) {
     if (busy) return;
     busy = id;
@@ -110,7 +121,7 @@
           aria-hidden="true"
           onclick={() => (opened = opened === profile.id ? null : profile.id)}
         >
-          <span class="flex items-center gap-2 truncate text-sm font-medium">
+          <span class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
           </span>
@@ -119,13 +130,18 @@
           {:else}
             <!-- How it compares with the logged-in account, so that it need not be opened to find out. -->
             <span class="block text-xs text-faint">
-              {profile.settings} settings{#if profile.differs === 0}{" · "}matches this account{:else if profile.differs}{" · "}<span
-                  class="text-muted-foreground">{profile.differs} would change</span
+              {profile.settings} settings{#if profile.differs === 0}{" · "}in sync{:else if profile.differs}{" · "}<span
+                  class="text-muted-foreground"
+                  title="Applying it would change {profile.differs} settings on this account">{profile.differs} differ</span
                 >{/if}
             </span>
           {/if}
         </button>
-        <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">
+        <!-- Always there, so that nobody has to find them by hovering, but faint until the row is
+             hovered or tabbed into. -->
+        <div
+          class="flex items-center gap-1 text-muted-foreground opacity-35 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100"
+        >
           <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
             <Pencil />
           </Button>
