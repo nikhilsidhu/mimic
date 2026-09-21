@@ -55,12 +55,6 @@ League stores your in-game settings per account on Riot's servers and downloads 
 **Where is my data?**
 In `%APPDATA%\mimic`, as plain JSON. There is no account, no server and no telemetry. Champion names and icons are fetched from your own League client and cached; none of Riot's assets ship with mimic.
 
-**Why did a keybind not apply?**
-The client refuses a few keybinds when they conflict with keys it reserves, such as push-to-talk. mimic reports those instead of pretending they applied.
-
-**I applied a profile mid-game and nothing changed.**
-The game reads its settings once while loading, so they take effect in the next game.
-
 ## Reporting a problem
 
 Open an [issue](https://github.com/nikhilsidhu/mimic/issues) and say what you did and what happened. Logs help a lot: in the manager, Settings > Data opens mimic's folder, and the logs are in `logs`. They contain your Riot ID, so look before you post.
