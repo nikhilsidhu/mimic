@@ -75,7 +75,7 @@
   {#each view?.profiles ?? [] as profile, index (profile.id)}
     <div class="group list-row" class:border-t={index > 0}>
       <button
-        class="flex shrink-0 items-center gap-1 text-faint hover:text-foreground"
+        class="flex shrink-0 items-center gap-1 pressable text-faint"
         aria-label="Show settings"
         aria-expanded={opened === profile.id}
         onclick={() => (opened = opened === profile.id ? null : profile.id)}

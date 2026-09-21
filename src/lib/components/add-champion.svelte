@@ -77,7 +77,7 @@
       <div class="grid grid-cols-[repeat(auto-fill,minmax(9rem,1fr))] gap-0.5 p-1.5">
         {#each matches as candidate (candidate.id)}
           <button
-            class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent"
+            class="pressable flex items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
             onclick={() => (champion = candidate)}
           >
             <img src={candidate.icon} alt="" loading="lazy" class="size-6 shrink-0 rounded-sm" />
@@ -109,7 +109,7 @@
     {:else}
       {#each sources ?? [] as source, index (source.profile ?? "")}
         <button
-          class="flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent disabled:opacity-50 disabled:hover:bg-transparent"
+          class="flex w-full items-center gap-3 px-4 py-2.5 text-left pressable disabled:opacity-50"
           class:border-t={index > 0}
           disabled={busy || source.settings === 0}
           onclick={() => save(source)}

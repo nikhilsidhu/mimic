@@ -119,7 +119,7 @@
             <Button class="-mr-1" variant="secondary" size="sm" onclick={() => (editingCard = null)}>Done</Button>
           {:else}
             <Button
-              class="-mr-1 text-faint hover:text-foreground"
+              class="-mr-1 pressable text-faint"
               variant="ghost"
               size="icon-sm"
               onclick={() => (editingCard = overlay.champion.id)}
@@ -168,7 +168,7 @@
       </ul>
       {#if overlay.settings.length > CARD_ROWS}
         <button
-          class="pt-1 text-xs text-faint hover:text-foreground"
+          class="pt-1 text-xs pressable text-faint"
           onclick={() =>
             (unfolded = folded
               ? [...unfolded, overlay.champion.id]

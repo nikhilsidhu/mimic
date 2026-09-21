@@ -345,3 +345,15 @@
 }
 
 
+
+/* What is not a Button but can be clicked: a row in a menu, a link in the text, an arrow that
+   opens something. Under the pointer it takes the hover colour, as every Button does, so that
+   what hovering means is said in one place. Not while disabled. */
+@utility pressable {
+	transition: color 0.15s ease-out;
+
+	&:hover:not(:disabled) {
+		color: var(--hover);
+	}
+}
+

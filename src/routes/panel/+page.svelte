@@ -85,7 +85,7 @@
   let reviewing = $state(false);
   /** Whether the footer is asking before it quits. */
   let quitting = $state(false);
-  const saveRow = "rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50";
+  const saveRow = "rounded-md px-2 py-1.5 text-left transition-colors pressable disabled:opacity-50";
 
   async function saveTo(action: () => Promise<string>) {
     await run("save", action);
@@ -192,7 +192,7 @@
     <div class="flex flex-col gap-0.5 px-1.5 pb-1.5">
       {#each view?.profiles ?? [] as profile (profile.id)}
         <button
-          class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left hover:bg-accent disabled:opacity-50"
+          class="flex items-center gap-2 rounded-md px-2 py-1.5 text-left pressable disabled:opacity-50"
           disabled={busy !== null}
           onclick={() => run(profile.id, () => api.applyProfile(profile.id))}
           title={view?.connected ? `Apply ${profile.name}` : `Apply ${profile.name} at the next login`}

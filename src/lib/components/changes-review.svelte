@@ -186,7 +186,7 @@
     {/if}
     {#each choices as option, index (option.choice)}
       <button
-        class="rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
+        class="rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors pressable disabled:opacity-50"
         class:border-border={index === 0}
         class:border-transparent={index > 0}
         class:bg-accent={index === 0}
@@ -200,7 +200,7 @@
     <!-- Every row was muted: the way back stays on the rows, and this puts the review away. -->
     {#if !drift}
       <button
-        class="rounded-md border border-border bg-accent px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent"
+        class="pressable rounded-md border border-border bg-accent px-2.5 py-1.5 text-left text-sm font-medium"
         onclick={onclose}
       >
         Done
