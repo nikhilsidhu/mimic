@@ -1,13 +1,12 @@
 <!-- Champions with settings of their own: a card each, read far more often than changed. -->
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Plus from "@lucide/svelte/icons/plus";
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import X from "@lucide/svelte/icons/x";
   import AddChampion from "$lib/components/add-champion.svelte";
-  import Bind from "$lib/components/bind.svelte";
+  import FromTo from "$lib/components/from-to.svelte";
   import Confirm from "$lib/components/confirm.svelte";
   import SectionHeader from "$lib/components/section-header.svelte";
   import Status from "$lib/components/status.svelte";
@@ -139,13 +138,7 @@
               {settingLabel(setting.key)}
             </span>
             <!-- What the champion changes it from, when that is known, and to. -->
-            <span class="flex items-center justify-end gap-1.5">
-              {#if setting.from !== null}
-                {#if isBind(setting)}<Bind value={setting.from} />{:else}<span>{setting.from}</span>{/if}
-                <ArrowRight class="size-3 shrink-0 text-faint" />
-              {/if}
-              {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
-            </span>
+            <FromTo keys={isBind(setting)} from={setting.from ?? undefined} to={setting.value} />
             {#if removing === `${id}/${api.muteId(setting)}`}
               <span class="absolute inset-y-0 right-0 flex items-center gap-1 bg-linear-to-l from-background from-85% to-transparent pl-8">
                 <Confirm

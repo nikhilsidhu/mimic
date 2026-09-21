@@ -13,7 +13,7 @@
 
 {#if chords.length === 0}
   <!-- No key: an empty chip, the size of a real one so that columns of keys stay aligned. -->
-  <span class="inline-flex shrink-0 bg-foreground/5 {KEY}" role="img" aria-label="Not bound" title="Not bound"></span>
+  <span class="inline-flex shrink-0 bg-foreground/8 {KEY}" role="img" aria-label="Not bound" title="Not bound"></span>
 {:else}
   <span class="inline-flex items-center gap-1">
     {#each chords as chord, index (index)}

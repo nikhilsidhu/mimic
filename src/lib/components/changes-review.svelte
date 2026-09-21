@@ -124,7 +124,8 @@
     </p>
   </div>
 
-  <ScrollArea class="min-h-0 flex-1 rounded-md border border-border">
+  <!-- As tall as its rows, so the box ends where the list does; with many it shrinks and scrolls. -->
+  <ScrollArea class="min-h-0 shrink rounded-md border border-border">
     <ChangeList changes={drift?.changes ?? []} onmute={mute} />
   </ScrollArea>
 
@@ -132,7 +133,7 @@
     <p class="text-xs text-destructive">{failure}</p>
   {/if}
 
-  <div class="flex flex-col gap-1">
+  <div class="mt-auto flex flex-col gap-1">
     {#each choices as option, index (option.choice)}
       <button
         class="rounded-md border px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent disabled:opacity-50"
