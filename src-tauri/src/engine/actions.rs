@@ -511,10 +511,46 @@ impl Engine {
 
     /// Snapshots the current settings, writes whatever differs from `target`, and makes
     /// the result the account's baseline.
+    ///
+    /// While a champion's settings are on, the account holds its base with the champion's
+    /// overrides on top, and mimic remembers the two apart. A new base then goes under the
+    /// overrides, which stay on for the game: written over them, it would leave mimic thinking
+    /// they were still on, and asking after the game about changes nobody made. And the
+    /// snapshot is of the base, not of what is on the account: with the overrides in it,
+    /// restoring it later would make one champion's settings the account's own.
     async fn write(&self, target: &SettingsMap, reason: &str, profile_id: Option<&str>) -> Result<Applied> {
-        let (applied, after) = self.write_settings(target, Some(reason)).await?;
-        self.remember(profile_id, after)?;
+        let Some((base, overrides)) = self.base_and_overrides()? else {
+            let (applied, after) = self.write_settings(target, Some(reason)).await?;
+            self.remember(profile_id, after)?;
+            return Ok(applied);
+        };
+
+        let puuid = self.connection()?.puuid;
+        let mut record = Snapshot::new(reason, Some(&puuid), base.clone());
+        self.inner.store.save_snapshot(&record, KEEP_SNAPSHOTS)?;
+        let (applied, after) = match self.write_settings(&merge(target, &overrides), None).await {
+            Ok(written) => written,
+            Err(err) => {
+                self.inner.store.delete_snapshot(&record)?;
+                return Err(err);
+            }
+        };
+        let new_base = base_under(&after, target, &base, &overrides);
+        record.changes = user_changes(&base, &new_base);
+        if record.changes.is_empty() {
+            self.inner.store.delete_snapshot(&record)?;
+        } else {
+            self.inner.store.save_snapshot(&record, KEEP_SNAPSHOTS)?;
+        }
+        self.remember(profile_id, new_base)?;
         Ok(applied)
+    }
+
+    /// The account's base and the overrides on top of it, while a champion's settings are on.
+    fn base_and_overrides(&self) -> Result<Option<(SettingsMap, SettingsMap)>> {
+        let Some(account) = self.account() else { return Ok(None) };
+        let (Some(champion), Some(base)) = (account.overlay, account.baseline) else { return Ok(None) };
+        Ok(self.inner.store.load_overlay(champion)?.map(|overlay| (base, overlay.settings)))
     }
 
     /// Writes whatever differs from `target` and returns what is on the account
@@ -674,6 +710,21 @@ pub(super) fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec
         .collect()
 }
 
+/// What the account's base is after `target` was written under a champion's `overrides`: what
+/// landed, except that where the overrides are on top, what lies under them is the target's
+/// value, or the old base's where the target leaves the key alone. A key that only the overrides
+/// have is no part of the base.
+fn base_under(after: &SettingsMap, target: &SettingsMap, old_base: &SettingsMap, overrides: &SettingsMap) -> SettingsMap {
+    let mut base = after.clone();
+    for (file, section, key, _) in overrides.iter() {
+        match target.get(file, section, key).or_else(|| old_base.get(file, section, key)) {
+            Some(value) => base.set(file, section, key, value),
+            None => drop(base.remove(file, section, key)),
+        }
+    }
+    base
+}
+
 /// What writing `target` onto `current` would alter: only keys the target has, as a
 /// missing key is not a request to delete, and not the layout that moves on its own.
 pub(super) fn would_change(current: &SettingsMap, target: &SettingsMap) -> Vec<Change> {
@@ -739,6 +790,34 @@ mod tests {
         }
         assert_eq!(at_login(None, None, false, false, "InProgress"), AtLogin::Nothing);
         assert_eq!(at_login(Some("alt"), None, false, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn a_new_base_goes_under_a_champions_overrides() {
+        let bind = |map: &mut SettingsMap, key: &str, value: &str| map.set("Input.ini", "GameEvents", key, value);
+        let mut old_base = SettingsMap::default();
+        bind(&mut old_base, "evtCastSpell1", "[q]");
+        bind(&mut old_base, "evtCastSpell4", "[r]");
+        bind(&mut old_base, "evtUseItem1", "[1]");
+        let mut overrides = SettingsMap::default();
+        bind(&mut overrides, "evtCastSpell4", "[t]");
+        bind(&mut overrides, "evtUseItem1", "[Button 4]");
+        bind(&mut overrides, "evtChampionOnly", "[`]");
+        // The profile being applied moves Q and R, and says nothing about the item.
+        let mut target = SettingsMap::default();
+        bind(&mut target, "evtCastSpell1", "[a]");
+        bind(&mut target, "evtCastSpell4", "[f]");
+        // What is on the account afterwards: the profile, with the champion's settings on top.
+        let after = merge(&merge(&old_base, &target), &overrides);
+
+        let base = base_under(&after, &target, &old_base, &overrides);
+        let get = |key: &str| base.get("Input.ini", "GameEvents", key);
+        assert_eq!(get("evtCastSpell1"), Some("[a]"), "what the profile changed landed");
+        assert_eq!(get("evtCastSpell4"), Some("[f]"), "under the override lies the profile's key, not the champion's");
+        assert_eq!(get("evtUseItem1"), Some("[1]"), "a key the profile leaves alone keeps the old base's value");
+        assert_eq!(get("evtChampionOnly"), None, "a key only the champion has is no part of the base");
+        // And the champion's settings are still exactly what differs from the base.
+        assert_eq!(merge(&base, &overrides), after);
     }
 
     #[test]
