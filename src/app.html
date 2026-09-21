@@ -18,7 +18,7 @@
     <!-- Before the first paint, so a light theme never flashes dark. Mirrors `lib/theme.ts`. -->
     <script>
       (function () {
-        var theme = localStorage.getItem("theme") || "dark";
+        var theme = localStorage.getItem("theme") || "black";
         var dark = theme === "system" ? matchMedia("(prefers-color-scheme: dark)").matches : theme !== "light";
         document.documentElement.classList.toggle("dark", dark);
         document.documentElement.classList.toggle("black", theme === "black");

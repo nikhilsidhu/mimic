@@ -18,7 +18,7 @@
 
   let autostart = $state(false);
   let notices = $state(true);
-  let theme = $state<Theme>("dark");
+  let theme = $state<Theme>("black");
   let update = $state<api.UpdateStatus | null>(null);
   let updating = $state(false);
   // A check just now found nothing newer.

@@ -12,10 +12,10 @@ const CHANGED = "theme-changed";
 export const THEMES: Theme[] = ["system", "light", "dark", "black"];
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 
-/** Dark unless something else was chosen: it is how mimic is meant to look. */
+/** Black unless something else was chosen: it is how mimic is meant to look. */
 export function getTheme(): Theme {
   const stored = localStorage.getItem(KEY) as Theme | null;
-  return stored && THEMES.includes(stored) ? stored : "dark";
+  return stored && THEMES.includes(stored) ? stored : "black";
 }
 
 function apply() {
