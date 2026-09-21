@@ -14,6 +14,48 @@
 
   const close = () => getCurrentWindow().hide();
 
+  type Option = { choice: api.DriftChoice; title: string; says: string; primary: boolean };
+
+  // What can be done with the changes, the most likely first. After a reset by Riot that
+  // is putting things back; otherwise it is saving them.
+  const choices = $derived.by((): Option[] => {
+    if (!drift) return [];
+    const { profile, champion, reset } = drift;
+    const options: Option[] = [];
+    if (profile) {
+      options.push({
+        choice: "saveToProfile",
+        title: `Save to ${profile}`,
+        says: "all your accounts",
+        primary: false,
+      });
+    }
+    if (champion) {
+      options.push({
+        choice: "saveToChampion",
+        title: `Only for ${champion.name}`,
+        says: "just this champion",
+        primary: false,
+      });
+    }
+    options.push({
+      choice: "keepHere",
+      title: "Only this account",
+      says: "profile untouched",
+      primary: false,
+    });
+    const revert: Option = {
+      choice: "revert",
+      title: reset ? "Restore my settings" : "Revert",
+      says: "undo the changes",
+      primary: false,
+    };
+    if (reset) options.unshift(revert);
+    else options.push(revert);
+    options[0].primary = true;
+    return options;
+  });
+
   async function refresh() {
     failure = null;
     drift = await api.getDrift();
@@ -75,12 +117,8 @@
       {#if drift?.reset}
         A patch put {drift.changes.length === 1 ? "1 setting" : `${drift.changes.length} settings`} back to Riot's
         defaults. Restore puts yours back.
-      {:else if drift?.profile}
-        Save to <span class="text-foreground">{drift.profile}</span> and your other accounts get it too.
-      {:else if drift?.champion}
-        This account is not on a profile, but it can be kept for {drift.champion.name}.
       {:else}
-        This account is not on a profile, so there is nowhere to save it.
+        Where should {drift?.changes.length === 1 ? "it" : "they"} go?
       {/if}
     </p>
   </div>
@@ -93,41 +131,20 @@
     <p class="text-xs text-destructive">{failure}</p>
   {/if}
 
-  <!-- Where the changes go, then what else can be done with them. -->
-  <div class="flex flex-col gap-2">
-    {#if drift?.profile || drift?.champion}
-      <div class="flex gap-2">
-        {#if drift.profile}
-          <Button class="min-w-0 flex-1" disabled={busy} onclick={() => choose("saveToProfile")}>
-            <span class="truncate">Save to {drift.profile}</span>
-          </Button>
-        {/if}
-        {#if drift.champion}
-          <Button
-            class="min-w-0 flex-1"
-            variant={drift.profile ? "secondary" : "default"}
-            disabled={busy}
-            onclick={() => choose("saveToChampion")}
-            title="Only used when you play {drift.champion.name}"
-          >
-            <span class="truncate">Only for {drift.champion.name}</span>
-          </Button>
-        {/if}
-      </div>
-    {/if}
-    <div class="flex gap-2">
-      <Button
-        class="flex-1"
-        variant="ghost"
+  <!-- Where the changes go. Each choice says what it does, as the names alone did not. -->
+  <div class="flex flex-col gap-1">
+    {#each choices as option (option.choice)}
+      <button
+        class="flex items-baseline gap-3 rounded-md border px-2.5 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50"
+        class:border-border={option.primary}
+        class:border-transparent={!option.primary}
+        class:bg-accent={option.primary}
         disabled={busy}
-        onclick={() => choose("keepHere")}
-        title="Keep the changes on this account. Your profile and other accounts stay as they are."
+        onclick={() => choose(option.choice)}
       >
-        Only this account
-      </Button>
-      <Button class="flex-1" variant={drift?.reset ? "default" : "ghost"} disabled={busy} onclick={() => choose("revert")}>
-        {drift?.reset ? "Restore my settings" : "Revert"}
-      </Button>
-    </div>
+        <span class="min-w-0 flex-1 truncate text-sm font-medium">{option.title}</span>
+        <span class="shrink-0 text-xs text-muted-foreground">{option.says}</span>
+      </button>
+    {/each}
   </div>
 </main>

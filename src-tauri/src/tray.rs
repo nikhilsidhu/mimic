@@ -23,7 +23,7 @@ const BLUR_SETTLE: Duration = Duration::from_millis(100);
 /// The panel's window label, which is also its frontend route.
 pub const PANEL: &str = "panel";
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
-const DRIFT_SIZE: (f64, f64) = (380.0, 296.0);
+const DRIFT_SIZE: (f64, f64) = (380.0, 340.0);
 
 /// When the panel was last hidden. Clicking the tray icon while the panel is open first
 /// takes its focus away, which hides it; without this the same click would then open
