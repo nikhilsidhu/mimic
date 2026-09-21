@@ -90,14 +90,24 @@
       <header class="flex items-center gap-4">
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
-          <h1 class="text-lg font-semibold tracking-tight">Profiles</h1>
-          <p class="truncate text-sm text-muted-foreground">{view?.account?.name ?? view?.status ?? "Starting…"}</p>
+          <h1 class="truncate text-lg font-semibold tracking-tight">{view?.account?.name ?? "mimic"}</h1>
+          <p class="truncate text-sm text-muted-foreground">
+            {#if !view}
+              Starting…
+            {:else if view.connected}
+              {view.activity ?? "Connected"}
+            {:else}
+              {view.status}
+            {/if}
+          </p>
         </div>
-        {#if view?.activity}
-          <Badge variant="secondary">{view.activity}</Badge>
-        {:else if view && !view.connected}
-          <Badge variant="outline">{view.status}</Badge>
-        {/if}
+      </header>
+
+      <header class="flex items-end justify-between gap-4 pt-2">
+        <div>
+          <h2 class="text-lg font-semibold tracking-tight">Profiles</h2>
+          <p class="text-sm text-muted-foreground">Saved settings you can apply to any account.</p>
+        </div>
         <Button variant="outline" size="sm" onclick={() => transfer(api.importProfile)}><Upload />Import</Button>
       </header>
 
