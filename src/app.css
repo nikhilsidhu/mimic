@@ -180,3 +180,10 @@
 	--muted: oklch(0.21 0 0);
 	--accent: oklch(0.21 0 0);
 }
+
+/* A scrolling area whose content dissolves at the top and bottom edges instead of being cut
+   off. The page inside has padding of at least the fade's height, so that nothing is dimmed
+   while it is scrolled to either end. */
+.fade-edges {
+	mask-image: linear-gradient(to bottom, transparent, black 1.25rem, black calc(100% - 1.75rem), transparent);
+}

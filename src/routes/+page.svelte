@@ -83,7 +83,7 @@
 <div class="flex h-screen flex-col bg-background">
   <Titlebar />
 
-  <ScrollArea class="min-h-0 flex-1">
+  <ScrollArea class="fade-edges min-h-0 flex-1">
     <main class="mx-auto flex max-w-4xl flex-col gap-6 px-6 pt-6 pb-10">
       <header class="flex items-center gap-4">
         <Avatar account={view?.account} size="lg" />
