@@ -8,7 +8,6 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Undo2 from "@lucide/svelte/icons/undo-2";
   import Avatar from "$lib/components/avatar.svelte";
-  import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
@@ -96,17 +95,21 @@
   <header class="flex items-center gap-2.5 px-3 py-2.5">
     <Avatar account={view?.account} />
     <div class="min-w-0 flex-1">
-      <!-- The account stays put while League is closed; the status line above it says so. -->
-      <p class="truncate text-[0.625rem] font-medium tracking-wide text-muted-foreground">
-        {view?.connected ? "mimic" : (view?.status ?? "Starting…")}
-      </p>
       <p class="truncate text-sm font-medium" class:text-muted-foreground={!view?.connected}>
-        {view?.account?.name ?? view?.status ?? "Starting…"}
+        {view?.account?.name ?? "mimic"}
+      </p>
+      <!-- What the account is doing, or why there is none. The account itself stays put
+           while League is closed. -->
+      <p class="truncate text-xs text-muted-foreground">
+        {#if !view}
+          Starting…
+        {:else if view.connected}
+          {view.activity ?? "Connected"}
+        {:else}
+          {view.status}
+        {/if}
       </p>
     </div>
-    {#if view?.activity}
-      <Badge variant="secondary">{view.activity}</Badge>
-    {/if}
     {#if view?.account}
       <Button variant="ghost" size="icon" onclick={copy} aria-label="Copy Riot ID" title="Copy Riot ID">
         {#if copied}<Check class="text-emerald-500" />{:else}<Copy />{/if}
