@@ -180,6 +180,27 @@
 
   <Separator />
 
+  {#if saving === "menu"}
+    <!-- Where this account's current settings go. It takes the list's place while it is open: the
+         panel has no room for both, and the bar below must stay in view. -->
+    <p class="px-3 pt-2.5 pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">Save settings to</p>
+    <div class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1.5 pb-1.5">
+      {#if activeProfile}
+        <button class={saveRow} disabled={busy !== null} onclick={() => saveTo(() => api.updateProfile(activeProfile.id))}>
+          <span class="block text-sm">{activeProfile.name}</span>
+          <span class="block text-muted-foreground">Replaces its settings.</span>
+        </button>
+      {/if}
+      <button class={saveRow} onclick={() => (saving = "new")}>
+        <span class="block text-sm">A new profile</span>
+        <span class="block text-muted-foreground">As a separate profile.</span>
+      </button>
+      <button class={saveRow} onclick={() => leaveFor(api.addChampion)}>
+        <span class="block text-sm">A champion</span>
+        <span class="block text-muted-foreground">Pick the champion in the manager.</span>
+      </button>
+    </div>
+  {:else}
   <p class="px-3 pt-2.5 pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">Profiles</p>
   <ScrollArea class="min-h-0 flex-1">
     <div class="flex flex-col gap-0.5 px-1.5 pb-1.5">
@@ -211,29 +232,11 @@
       {/each}
     </div>
   </ScrollArea>
+  {/if}
 
   <Separator />
 
-  {#if saving === "menu"}
-    <!-- Where this account's current settings go. -->
-    <div class="flex flex-col gap-0.5 p-1.5">
-      {#if activeProfile}
-        <button class={saveRow} disabled={busy !== null} onclick={() => saveTo(() => api.updateProfile(activeProfile.id))}>
-          <span class="block font-medium">Update {activeProfile.name}</span>
-          <span class="block text-muted-foreground">Replaces its settings.</span>
-        </button>
-      {/if}
-      <button class={saveRow} onclick={() => (saving = "new")}>
-        <span class="block font-medium">New profile</span>
-        <span class="block text-muted-foreground">As a separate profile.</span>
-      </button>
-      <button class={saveRow} onclick={() => leaveFor(api.addChampion)}>
-        <span class="block font-medium">For a champion</span>
-        <span class="block text-muted-foreground">Pick the champion in the manager.</span>
-      </button>
-      <Button variant="ghost" size="sm" onclick={() => (saving = "closed")}>Cancel</Button>
-    </div>
-  {:else if saving === "new"}
+  {#if saving === "new"}
     <form class="flex gap-1.5 p-2" onsubmit={save}>
       <Input bind:value={newName} placeholder="Profile name" maxlength={40} disabled={busy !== null} />
       <Button type="submit" disabled={busy !== null || !newName.trim()}>
