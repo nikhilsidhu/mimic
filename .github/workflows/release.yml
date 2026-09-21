@@ -36,7 +36,10 @@ jobs:
         run: |
           # What installed copies fetch to learn about this version.
           $bundle = "src-tauri/target/release/bundle/nsis"
-          $installer = Get-ChildItem "$bundle/*-setup.exe" | Select-Object -First 1
+          # A name without the version, so that one link always downloads the newest:
+          # releases/latest/download/mimic-setup.exe
+          $built = Get-ChildItem "$bundle/*_x64-setup.exe" | Select-Object -First 1
+          $installer = Copy-Item $built.FullName "$bundle/mimic-setup.exe" -PassThru
           $version = (Get-Content src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
           if ("v$version" -ne "${{ github.ref_name }}") {
             throw "the tag ${{ github.ref_name }} does not match version $version in tauri.conf.json"
@@ -46,7 +49,7 @@ jobs:
             pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
             platforms = @{
               "windows-x86_64" = @{
-                signature = (Get-Content "$($installer.FullName).sig" -Raw).Trim()
+                signature = (Get-Content "$($built.FullName).sig" -Raw).Trim()
                 url       = "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$($installer.Name)"
               }
             }
@@ -62,5 +65,5 @@ jobs:
         with:
           draft: true
           files: |
-            src-tauri/target/release/bundle/nsis/*-setup.exe
+            src-tauri/target/release/bundle/nsis/mimic-setup.exe
             src-tauri/target/release/bundle/nsis/latest.json
