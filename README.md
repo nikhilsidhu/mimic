@@ -18,6 +18,10 @@ mimic is a Windows tray app that saves your League settings as profiles and appl
 
 You keep changing settings in the game itself. After a game mimic shows what changed and asks where it should go: into your profile, to that champion only, or undone.
 
+<p align="center">
+  <img src="docs/screenshots/manager.png" width="820" alt="The manager: the account in use, its profiles, and champions with their own keybinds" />
+</p>
+
 ## Download
 
 **[Download mimic for Windows](https://github.com/nikhilsidhu/mimic/releases/latest/download/mimic-setup.exe)** (Windows 10 and 11)
@@ -41,8 +45,14 @@ mimic is new, so if something looks off, please [open an issue](https://github.c
 - Notices when Riot resets your settings after a patch and offers to put yours back.
 - Exports and imports profiles as single files.
 - Lets you mute settings you flip with hotkeys, like the FPS counter, so it stops asking about them. Changes to them are kept.
-- Light and dark themes; follows Windows by default.
+- Black, dark and light themes.
 - Lives in the tray. One panel for everyday use, a manager window for the rest.
+
+<p align="center">
+  <img src="docs/screenshots/panel.png" width="300" alt="The tray panel: the account, the champion whose settings are on, and the profiles" />
+  &nbsp;&nbsp;
+  <img src="docs/screenshots/prompt.png" width="360" alt="After a game: what changed, and where it should go" />
+</p>
 
 ## Questions
 
