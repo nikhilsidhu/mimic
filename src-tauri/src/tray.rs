@@ -24,9 +24,9 @@ const BLUR_SETTLE: Duration = Duration::from_millis(100);
 pub const PANEL: &str = "panel";
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
 const DRIFT_SIZE: (f64, f64) = (380.0, 376.0);
-/// What a window shows before its page has loaded: near black, as the page will be, where the
+/// What a window shows before its page has loaded: black, as the page will be by default, where the
 /// default is a flash of white.
-const WINDOW_GROUND: tauri::window::Color = tauri::window::Color(10, 10, 10, 255);
+const WINDOW_GROUND: tauri::window::Color = tauri::window::Color(0, 0, 0, 255);
 
 /// The least and the most the prompt's height is fitted to; past the most, its list scrolls.
 const DRIFT_HEIGHT: (f64, f64) = (220.0, 560.0);
@@ -97,6 +97,20 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
         show_manager(app);
         show_drift_prompt(app);
         toggle_panel(app, PhysicalPosition::new(0.0, 0.0))?;
+        // For taking screenshots: the windows still draw themselves off screen, and nobody
+        // scrolls or clicks in them between their opening and their capture.
+        if std::env::var_os("MIMIC_DEMO_OFFSCREEN").is_some() {
+            let app = app.clone();
+            tauri::async_runtime::spawn(async move {
+                // The prompt places itself in its corner once it knows its size; after that.
+                tokio::time::sleep(std::time::Duration::from_secs(6)).await;
+                for (index, label) in ["main", PANEL, "drift"].into_iter().enumerate() {
+                    if let Some(window) = app.get_webview_window(label) {
+                        let _ = window.set_position(PhysicalPosition::new(-6000 + 1500 * index as i32, -6000));
+                    }
+                }
+            });
+        }
     }
 
     // Keeps the tooltip current and tells open windows to refresh.
