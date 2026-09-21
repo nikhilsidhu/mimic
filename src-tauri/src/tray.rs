@@ -86,7 +86,7 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
     if crate::demo::enabled() {
         // Tall enough to show every section at once.
         if let Some(manager) = app.get_webview_window("main") {
-            let _ = manager.set_size(tauri::LogicalSize::new(920.0, 1180.0));
+            let _ = manager.set_size(tauri::LogicalSize::new(920.0, 1250.0));
         }
         show_manager(app);
         show_drift_prompt(app);

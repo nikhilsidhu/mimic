@@ -91,7 +91,7 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
         (AZIR, vec![("evtPlayerAttackMoveClick", "[Button 4]"), ("evtSmartCastWithIndicatorSpell2", "[w]")]),
         (VIKTOR, vec![("evtCastSpell3", "[e]"), ("evtSmartCastSpell3", "[<Unbound>]")]),
         (ORIANNA, vec![("evtSelfCastSpell3", "[Shift][e]"), ("evtChampionOnly", "[`]")]),
-        (LEE_SIN, vec![("evtUseVisionItem", "[c]"), ("evtSmartPlusSelfCastSpell2", "[Shift][w]"), ("evtUseItem1", "[Button 5]")]),
+        (LEE_SIN, vec![("evtUseVisionItem", "[c]"), ("evtSmartPlusSelfCastSpell2", "[Shift][w]")]),
     ] {
         let mut settings = SettingsMap::default();
         for (key, value) in keys {
