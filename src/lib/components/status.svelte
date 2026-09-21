@@ -1,4 +1,4 @@
-<!-- A status next to a name, such as "on now": a dot for the meaning, text at a readable size,
+<!-- A status next to a name, such as "active": a dot for the meaning, text at a readable size,
      and a hairline pill that holds the two together. -->
 <script lang="ts">
   import type { Snippet } from "svelte";

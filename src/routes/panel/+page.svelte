@@ -135,7 +135,7 @@
     <div class="flex items-center gap-2 px-3 pb-2.5" title="{view.activeOverlay.name}'s own settings are on for this game">
       <img src={view.activeOverlay.icon} alt="" class="size-5 rounded-sm" />
       <span class="min-w-0 truncate text-foreground">{view.activeOverlay.name}</span>
-      <Status>on now</Status>
+      <Status>active</Status>
     </div>
   {/if}
 

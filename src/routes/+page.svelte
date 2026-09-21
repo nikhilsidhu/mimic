@@ -35,6 +35,19 @@
   let editing = $state<{ id: string; mode: "rename" | "delete" | "update"; name: string } | null>(null);
   // The champion override whose removal is being confirmed, as `champion-id/setting`.
   let removing = $state<string | null>(null);
+
+  // A card shows this many overrides until it is asked for the rest, so that one champion
+  // with many does not push the others off the screen.
+  const CARD_ROWS = 4;
+  let unfolded = $state<number[]>([]);
+  // With this many champions a filter appears.
+  const FILTER_FROM = 9;
+  let championFilter = $state("");
+  const champions = $derived(
+    (view?.overlays ?? []).filter((overlay) =>
+      overlay.champion.name.toLowerCase().includes(championFilter.trim().toLowerCase()),
+    ),
+  );
   /** The profile whose contents are shown, by id. */
   let opened = $state<string | null>(null);
   let renameInput = $state<HTMLInputElement | null>(null);
@@ -176,7 +189,7 @@
               <div class="min-w-0 flex-1">
                 <p class="flex items-center gap-2 truncate text-sm font-medium">
                   {profile.name}
-                  {#if profile.active}<Status>in use</Status>{/if}
+                  {#if profile.active}<Status>active</Status>{/if}
                 </p>
                 {#if view?.pending === profile.name}
                   <p class="text-xs {WAITING}">Applies at next login</p>
@@ -255,9 +268,14 @@
             Overrides used only while you play that champion.
           </p>
         </div>
-        {#if !adding}
-          <Button variant="outline" size="sm" onclick={() => (adding = true)}><Plus />Add champion</Button>
-        {/if}
+        <div class="flex items-center gap-2">
+          {#if (view?.overlays.length ?? 0) >= FILTER_FROM}
+            <Input class="h-6 w-36" bind:value={championFilter} placeholder="Filter…" />
+          {/if}
+          {#if !adding}
+            <Button variant="outline" size="sm" onclick={() => (adding = true)}><Plus />Add champion</Button>
+          {/if}
+        </div>
       </header>
 
       {#if adding}
@@ -274,8 +292,9 @@
       <!-- A card per champion, two to a row: narrow lists keep each value next to its name
            and are read top to bottom. -->
       <section class="grid gap-3 min-[720px]:grid-cols-2">
-        {#each view?.overlays ?? [] as overlay (overlay.champion.id)}
+        {#each champions as overlay (overlay.champion.id)}
           {@const id = `champion-${overlay.champion.id}`}
+          {@const folded = overlay.settings.length > CARD_ROWS && !unfolded.includes(overlay.champion.id)}
           <div class="group rounded-lg border border-border px-3 pt-2.5 pb-2">
             <div class="flex h-8 items-center gap-2.5">
               <img src={overlay.champion.icon} alt="" class="size-7 shrink-0 rounded-md" />
@@ -292,7 +311,7 @@
                 <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
               {:else}
                 <p class="min-w-0 truncate text-sm font-medium">{overlay.champion.name}</p>
-                {#if view?.activeOverlay?.id === overlay.champion.id}<Status>on now</Status>{/if}
+                {#if view?.activeOverlay?.id === overlay.champion.id}<Status>active</Status>{/if}
                 <span class="flex-1"></span>
                 <Button
                   class="-mr-1 text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -307,7 +326,7 @@
               {/if}
             </div>
             <ul class="pt-1 text-xs">
-              {#each overlay.settings as setting (api.muteId(setting))}
+              {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
                 <!-- Asking before a removal changes only the last cell, so the text stays put. -->
                 <li class="group/row grid min-h-7 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
                   <span class="leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
@@ -350,10 +369,21 @@
                 </li>
               {/each}
             </ul>
+            {#if overlay.settings.length > CARD_ROWS}
+              <button
+                class="pt-1 text-xs text-faint hover:text-foreground"
+                onclick={() =>
+                  (unfolded = folded
+                    ? [...unfolded, overlay.champion.id]
+                    : unfolded.filter((champion) => champion !== overlay.champion.id))}
+              >
+                {folded ? `Show ${overlay.settings.length - CARD_ROWS} more` : "Show fewer"}
+              </button>
+            {/if}
           </div>
         {:else}
           <p class="col-span-full rounded-lg border border-border px-4 py-10 text-center text-sm text-muted-foreground">
-            None yet.
+            {view?.overlays.length ? "No champion by that name." : "None yet."}
           </p>
         {/each}
       </section>

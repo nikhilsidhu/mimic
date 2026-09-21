@@ -88,7 +88,7 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
     // abilities go back to normal cast, shields get an easier self-cast, and the ward-hop gets a
     // key of its own.
     for (champion, keys) in [
-        (AZIR, vec![("evtPlayerAttackMoveClick", "[Button 4]"), ("evtSmartCastWithIndicatorSpell2", "[w]"), ("evtSmartCastSpell2", "[<Unbound>]")]),
+        (AZIR, vec![("evtPlayerAttackMoveClick", "[Button 4]"), ("evtSmartCastWithIndicatorSpell2", "[w]"), ("evtSmartCastSpell2", "[<Unbound>]"), ("evtCameraLockToggle", "[y]"), ("evtChampionOnly", "[`]"), ("evtUseVisionItem", "[t]")]),
         (VIKTOR, vec![("evtCastSpell3", "[e]"), ("evtSmartCastSpell3", "[<Unbound>]")]),
         (ORIANNA, vec![("evtSelfCastSpell3", "[Button 5]"), ("evtChampionOnly", "[`]")]),
         (LEE_SIN, vec![("evtUseVisionItem", "[c]"), ("evtSmartPlusSelfCastSpell2", "[Button 4]")]),
