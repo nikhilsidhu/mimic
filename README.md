@@ -16,7 +16,7 @@ mimic is a Windows tray app that saves your League settings as profiles and appl
 - **Across accounts.** Keybinds, camera, HUD and sound settings follow you when you log into another account. An account can apply its profile by itself at every login.
 - **Per champion.** A champion can have its own overrides. They go on when you pick the champion and come off after the game.
 
-You keep changing settings in the game itself. After a game mimic shows what changed and asks where it should go: into your profile, to that champion only, kept on this account, or reverted.
+You keep changing settings in the game itself. After a game mimic shows what changed and asks where it should go: into your profile, to that champion only, or undone.
 
 ## Download
 

@@ -13,7 +13,6 @@
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Separator } from "$lib/components/ui/separator";
-  import { Switch } from "$lib/components/ui/switch";
   import Status from "$lib/components/status.svelte";
   import * as api from "$lib/api";
   import { DOT_LIVE, DOT_OFF, WAITING } from "$lib/tones";
@@ -31,15 +30,6 @@
   const refresh = async () => (view = await api.getView());
   /** The profile this account is on, which is what auto-apply would apply. */
   const activeProfile = $derived(view?.connected ? view.profiles.find((profile) => profile.active) : undefined);
-
-  async function setAutoApply(enabled: boolean) {
-    try {
-      await api.setAutoApply(enabled);
-    } catch (err) {
-      say(String(err), true);
-    }
-    refresh();
-  }
 
   /** For buttons that open something else: the panel gets out of the way, like a menu. */
   function leaveFor(action: () => Promise<void>) {
@@ -167,15 +157,6 @@
       </span>
       <Button variant="secondary" size="sm" onclick={() => (reviewing = true)}>Review</Button>
     </div>
-  {/if}
-
-  {#if activeProfile}
-    <label class="flex items-center gap-2 px-3 pb-2.5 text-muted-foreground">
-      <span class="min-w-0 flex-1 leading-snug">
-        Apply <span class="text-foreground">{activeProfile.name}</span> whenever this account logs in
-      </span>
-      <Switch checked={view?.autoApply ?? false} onCheckedChange={setAutoApply} />
-    </label>
   {/if}
 
   <Separator />

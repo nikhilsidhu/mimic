@@ -50,11 +50,13 @@
         says: `Used whenever you play ${champion.name}, and taken off afterwards.`,
       });
     }
-    options.push({
-      choice: "keepHere",
-      title: "Keep on this account only",
-      says: profile ? `The changes stay on this account. ${profile} is not changed.` : "The changes stay on this account.",
-    });
+    // With a profile, keeping the changes on the account alone would leave it at odds with its own
+    // profile, to be undone by the next auto-apply. Deciding later, muting a setting and
+    // duplicating the profile cover what it was reached for. Without a profile it is the only way
+    // to accept them.
+    if (!profile) {
+      options.push({ choice: "keepHere", title: "Keep them", says: "The changes stay on this account." });
+    }
     const revert: Option = {
       choice: "revert",
       title: reset ? "Restore my settings" : "Undo changes",
