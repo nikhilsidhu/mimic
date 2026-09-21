@@ -26,13 +26,13 @@ Run the installer; it needs no administrator rights. It is not code-signed yet, 
 
 Older versions and release notes are on the [releases page](https://github.com/nikhilsidhu/mimic/releases).
 
-> **Status: early, but usable.** The core works and is in daily use by its author. Per-champion overrides have had little testing in real games. Expect rough edges.
-
 ## Getting started
 
 1. Log into League on the account whose settings you like.
 2. Click mimic's tray icon and save the current settings as a profile.
 3. Log into another account and apply the profile. The settings take effect in your next game.
+
+mimic is new, so if something looks off, please [open an issue](https://github.com/nikhilsidhu/mimic/issues).
 
 ## What it does
 
