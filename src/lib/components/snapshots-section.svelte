@@ -8,7 +8,14 @@
   import * as api from "$lib/api";
   import { attempt, type Report } from "$lib/attempt";
 
-  let { onmessage }: { onmessage: Report } = $props();
+  // `connected`: whether an account is logged in. Settings can only be written through a client
+  // that has the account open, so without one nothing can be restored, and the reason differs
+  // from another account being logged in.
+  let { onmessage, connected }: { onmessage: Report; connected: boolean } = $props();
+
+  const whyNot = $derived(
+    connected ? "Log into that account to restore this" : "Open League and log in to restore this",
+  );
 
   let snapshots = $state<api.SnapshotView[]>([]);
   let busy = $state<string | null>(null);
@@ -51,13 +58,24 @@
     <div class="min-w-0 flex-1">
       <h2 class="text-lg font-semibold tracking-tight">History</h2>
       <p class="text-sm text-muted-foreground">
-        Every change mimic made, and what it altered.
+        <!-- Said in words: a disabled button shows no tooltip to say why it is disabled. -->
+        {#if snapshots.length && !connected}
+          Open League and log in to undo or restore.
+        {:else}
+          Every change mimic made, and what it altered.
+        {/if}
         <span class="text-faint">{snapshots.length} {snapshots.length === 1 ? "entry" : "entries"}</span>
       </p>
     </div>
   </button>
   <!-- Goes back to before the newest change, without having to find it in the list. -->
-  <Button variant="outline" size="sm" disabled={busy !== null || !snapshots[0]?.restorable} onclick={undo}>
+  <Button
+    variant="outline"
+    size="sm"
+    disabled={busy !== null || !snapshots[0]?.restorable}
+    title={snapshots[0]?.restorable ? "Put the account back to before the newest change" : snapshots.length ? whyNot : "Nothing to undo yet"}
+    onclick={undo}
+  >
     <Undo2 />Undo last change
   </Button>
 </div>
@@ -87,7 +105,7 @@
         variant="outline"
         size="sm"
         disabled={!snapshot.restorable || busy !== null}
-        title={snapshot.restorable ? "Put the account back to this" : "Log into that account to restore this"}
+        title={snapshot.restorable ? "Put the account back to this" : whyNot}
         onclick={() => restore(snapshot)}
       >
         {busy === snapshot.id ? "Restoring…" : "Restore"}

@@ -92,7 +92,7 @@
       <ProfilesSection {view} onmessage={report} onchanged={refresh} />
       <ChampionsSection {view} onmessage={report} onchanged={refresh} />
       <SettingsSection onmessage={report} />
-      <SnapshotsSection onmessage={report} />
+      <SnapshotsSection onmessage={report} connected={view?.connected ?? false} />
     </main>
   </ScrollArea>
   <Toast bind:message />
