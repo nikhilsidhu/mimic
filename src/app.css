@@ -175,7 +175,8 @@
 .dark.black {
 	--background: oklch(0 0 0);
 	--card: oklch(0.13 0 0);
-	--popover: oklch(0.11 0 0);
+	/* Popups too: their border is what sets them off from what is behind them. */
+	--popover: oklch(0 0 0);
 	--secondary: oklch(0.21 0 0);
 	--muted: oklch(0.21 0 0);
 	--accent: oklch(0.21 0 0);

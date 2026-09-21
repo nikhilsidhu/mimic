@@ -51,7 +51,7 @@
   });
   const others = $derived(groups.reduce((total, [, rows]) => total + rows.length, 0));
 
-  const heading = "pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase";
+  const heading = "text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase";
 </script>
 
 <div class="flex flex-col gap-3 border-t border-border bg-muted/30 px-4 py-3">
@@ -61,25 +61,24 @@
     <!-- How many would change is said on the profile's row; here is which. -->
     {#if details.preview?.length}
       <div>
-        <p class={heading}>Would change</p>
+        <p class="pb-1 {heading}">Would change</p>
         <div class="max-h-56 overflow-y-auto rounded-md border border-border bg-background">
           <ChangeList changes={details.preview} />
         </div>
       </div>
     {/if}
 
-    <div class="flex items-center gap-3">
-      <Input class="h-6 w-48" bind:value={filter} placeholder="Filter settings…" />
-      <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <input type="checkbox" class="accent-emerald-600" bind:checked={showUnbound} />
-        Show {unbound} unbound keys
-      </label>
-    </div>
-
     <!-- Keys on one side, everything else on the other, so that neither is a list of hundreds. -->
     <div class="grid grid-cols-2 gap-3">
       <div class="min-w-0">
-        <p class={heading}>Keys · {shownBinds.length}</p>
+        <!-- What only concerns the keys sits in their heading: most are bound to nothing. -->
+        <div class="flex h-6 items-center gap-2 pb-1">
+          <p class="flex-1 {heading}">Keys · {shownBinds.length}</p>
+          <label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input type="checkbox" class="accent-emerald-600" bind:checked={showUnbound} />
+            {unbound} unbound
+          </label>
+        </div>
         <ScrollArea class="h-64 rounded-md border border-border bg-background">
           <ul class="divide-y divide-border text-xs">
             {#each shownBinds as row (row.file + row.section + row.key)}
@@ -95,7 +94,11 @@
       </div>
 
       <div class="min-w-0">
-        <p class={heading}>Other settings · {others}</p>
+        <!-- The filter narrows both lists; it sits where a search usually does, at the far end. -->
+        <div class="flex h-6 items-center gap-2 pb-1">
+          <p class="flex-1 {heading}">Other settings · {others}</p>
+          <Input class="h-5 w-32 text-xs" bind:value={filter} placeholder="Filter…" />
+        </div>
         <ScrollArea class="h-64 rounded-md border border-border bg-background">
           {#each groups as [name, rows] (name)}
             <p class="sticky top-0 border-b border-border bg-background px-2.5 py-1 text-xs font-medium">{name}</p>
