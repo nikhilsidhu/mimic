@@ -117,7 +117,14 @@ export const deleteOverlay = (champion: number) => invoke<string>("delete_overla
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
-export const copyRiotId = () => invoke<string>("copy_riot_id");
+/** How a setting is named in the list of muted ones. */
+export const muteId = (change: { file: string; section: string; key: string }) =>
+  `${change.file}/${change.section}/${change.key}`;
+/** The settings mimic keeps changes to without asking, as `muteId`s. */
+export const getMutedSettings = () => invoke<string[]>("muted_settings");
+export const muteSetting = (id: string) => invoke<void>("mute_setting", { id });
+export const unmuteSetting = (id: string) => invoke<void>("unmute_setting", { id });
+export const copyRiotId =() => invoke<string>("copy_riot_id");
 
 export const setAutoApply = (enabled: boolean) => invoke<void>("set_auto_apply", { enabled });
 export const openManager = () => invoke<void>("open_manager");

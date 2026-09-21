@@ -403,6 +403,22 @@ pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> An
     engine.resolve_drift(choice).await.map_err(|err| format!("Could not do that: {err}"))
 }
 
+/// The settings mimic does not ask about, as `file/section/key`.
+#[tauri::command]
+pub fn muted_settings(engine: State<Engine>) -> Vec<String> {
+    engine.muted()
+}
+
+#[tauri::command]
+pub async fn mute_setting(engine: State<'_, Engine>, id: String) -> Result<(), String> {
+    engine.mute_setting(&id).await.map_err(|err| format!("Could not mute that: {err}"))
+}
+
+#[tauri::command]
+pub fn unmute_setting(engine: State<Engine>, id: String) -> Result<(), String> {
+    engine.unmute(&id).map_err(|err| format!("Could not unmute that: {err}"))
+}
+
 #[tauri::command]
 pub fn copy_riot_id(app: AppHandle, engine: State<Engine>) -> Answer {
     // The account shown: the connected one, or the last seen while League is closed.

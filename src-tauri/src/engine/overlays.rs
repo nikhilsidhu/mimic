@@ -97,7 +97,7 @@ impl Engine {
                 // Settings the user changed and has not settled yet must not be
                 // overwritten; the prompt about them comes first.
                 let expected = self.expected(&account)?.unwrap_or_else(|| baseline.clone());
-                if !user_changes(&expected, &read_settings(&self.connection()?)?).is_empty() {
+                if !self.asked_about(&expected, &read_settings(&self.connection()?)?).is_empty() {
                     tracing::info!(champion, "not applying champion settings over unsettled changes");
                     return Ok(());
                 }

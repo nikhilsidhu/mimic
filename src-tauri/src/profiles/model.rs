@@ -110,6 +110,10 @@ pub struct State {
     /// The League folder the user chose, for installs that detection does not find.
     #[serde(default)]
     pub install_path: Option<String>,
+    /// Settings the user does not want to be asked about, as `file/section/key`. Changes
+    /// to them are kept on the account without a prompt.
+    #[serde(default)]
+    pub muted: Vec<String>,
 }
 
 /// The settings as they were right before mimic changed them.

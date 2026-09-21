@@ -39,6 +39,19 @@
     }
   }
 
+  // Muting the last row leaves nothing to ask; refresh then closes the prompt.
+  async function mute(change: api.Change) {
+    if (busy) return;
+    busy = true;
+    try {
+      await api.muteSetting(api.muteId(change));
+      await refresh();
+    } catch (err) {
+      failure = String(err);
+    } finally {
+      busy = false;
+    }
+  }
 </script>
 
 <main class="flex h-screen flex-col gap-3 border border-border bg-popover p-4 text-popover-foreground">
@@ -66,7 +79,7 @@
   </div>
 
   <ScrollArea class="min-h-0 flex-1 rounded-md border border-border">
-    <ChangeList changes={drift?.changes ?? []} />
+    <ChangeList changes={drift?.changes ?? []} onmute={mute} />
   </ScrollArea>
 
   {#if failure}

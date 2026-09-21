@@ -218,7 +218,13 @@ impl Engine {
                     entry.baseline = Some(current.clone());
                 }
             }
-            let drifted = self.expected(entry)?.is_some_and(|expected| !user_changes(&expected, &current).is_empty());
+            // Muted settings are kept as they are, without asking.
+            if let (Some(expected), Some(mut baseline)) = (self.expected(entry)?, entry.baseline.clone()) {
+                if keep_muted(&mut baseline, &expected, &current, &self.muted()) > 0 {
+                    entry.baseline = Some(baseline);
+                }
+            }
+            let drifted = self.expected(entry)?.is_some_and(|expected| !self.asked_about(&expected, &current).is_empty());
             let (mapped, auto_apply) = (entry.profile_id.clone(), entry.auto_apply);
             self.inner.store.save_accounts(&accounts)?;
 
@@ -278,7 +284,7 @@ impl Engine {
         let connection = self.connection()?;
         let Some(account) = self.account() else { return Ok(None) };
         let Some(expected) = self.expected(&account)? else { return Ok(None) };
-        let changes = user_changes(&expected, &read_settings(&connection)?);
+        let changes = self.asked_about(&expected, &read_settings(&connection)?);
         if changes.is_empty() {
             return Ok(None);
         }
@@ -294,6 +300,70 @@ impl Engine {
         });
         let reset = *self.inner.reset.lock().unwrap();
         Ok(Some(Drift { profile, champion, changes, reset }))
+    }
+
+    /// Settings the user does not want to be asked about, as `file/section/key`.
+    pub fn muted(&self) -> Vec<String> {
+        self.inner.store.load_state().map(|state| state.muted).unwrap_or_default()
+    }
+
+    /// Stops asking about a setting. Changes to it are kept on the account silently.
+    pub fn mute(&self, id: &str) -> Result<()> {
+        let mut state = self.inner.store.load_state()?;
+        if !state.muted.iter().any(|muted| muted == id) {
+            state.muted.push(id.to_owned());
+            state.muted.sort();
+            self.inner.store.save_state(&state)?;
+        }
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
+    /// Mutes a setting from the prompt about changed settings. If that leaves nothing to
+    /// ask about, the prompt's job is done: a champion's overlay comes off again.
+    pub async fn mute_setting(&self, id: &str) -> Result<()> {
+        self.mute(id)?;
+        if self.connection().is_err() {
+            return Ok(());
+        }
+        {
+            let _guard = self.inner.action_lock.lock().await;
+            self.absorb_muted()?;
+        }
+        if self.drift()?.is_none() {
+            self.restore_base("the last changed setting was muted").await?;
+        }
+        Ok(())
+    }
+
+    pub fn unmute(&self, id: &str) -> Result<()> {
+        let mut state = self.inner.store.load_state()?;
+        state.muted.retain(|muted| muted != id);
+        self.inner.store.save_state(&state)?;
+        self.inner.changed.send_modify(|revision| *revision += 1);
+        Ok(())
+    }
+
+    /// What the user changed that they want to be asked about.
+    pub(super) fn asked_about(&self, expected: &SettingsMap, current: &SettingsMap) -> Vec<Change> {
+        let muted = self.muted();
+        user_changes(expected, current).into_iter().filter(|change| !muted.contains(&mute_id(change))).collect()
+    }
+
+    /// Takes changes to muted settings into the baseline, so that they are kept and do
+    /// not pile up as differences nobody is asked about.
+    pub(super) fn absorb_muted(&self) -> Result<()> {
+        let connection = self.connection()?;
+        let Some(account) = self.account() else { return Ok(()) };
+        let (Some(mut baseline), Some(expected)) = (account.baseline.clone(), self.expected(&account)?) else {
+            return Ok(());
+        };
+        let kept = keep_muted(&mut baseline, &expected, &read_settings(&connection)?, &self.muted());
+        if kept == 0 {
+            return Ok(());
+        }
+        tracing::info!(settings = kept, "kept changes to muted settings without asking");
+        self.update_account(|account| account.baseline = Some(baseline))
     }
 
     /// What should be on the account if the user changed nothing: its baseline, with
@@ -315,6 +385,12 @@ impl Engine {
     /// overlay comes off again without a word.
     pub(super) async fn check_drift_after_game(self) {
         tokio::time::sleep(AFTER_GAME_SETTLE).await;
+        {
+            let _guard = self.inner.action_lock.lock().await;
+            if let Err(err) = self.absorb_muted() {
+                tracing::warn!("could not keep changes to muted settings: {err}");
+            }
+        }
         match self.drift() {
             Ok(Some(drift)) => {
                 tracing::info!(changes = drift.changes.len(), "settings changed during the game");
@@ -345,7 +421,10 @@ impl Engine {
             return Ok("Nothing to do".to_owned());
         };
         let current = read_settings(&connection)?;
-        let changes = user_changes(&expected, &current);
+        // Muted settings stay as they are whatever is chosen; the choice is about the rest.
+        let mut base = baseline;
+        keep_muted(&mut base, &expected, &current, &self.muted());
+        let changes = self.asked_about(&expected, &current);
         if changes.is_empty() && choice == DriftChoice::SaveToChampion {
             return Err(ActionError::NothingChanged);
         }
@@ -359,7 +438,6 @@ impl Engine {
         };
 
         // What the base becomes, and what to tell the user.
-        let mut base = baseline;
         let said = match choice {
             DriftChoice::SaveToProfile => {
                 let id = account.profile_id.clone().ok_or(ActionError::NoProfile)?;
@@ -789,6 +867,23 @@ pub(super) fn user_changes(baseline: &SettingsMap, current: &SettingsMap) -> Vec
         .collect()
 }
 
+/// Takes the changes to muted settings into `baseline`. Returns how many there were.
+fn keep_muted(baseline: &mut SettingsMap, expected: &SettingsMap, current: &SettingsMap, muted: &[String]) -> usize {
+    let mut kept = 0;
+    for change in user_changes(expected, current) {
+        if let (true, Some(value)) = (muted.contains(&mute_id(&change)), &change.to) {
+            baseline.set(&change.file, &change.section, &change.key, value);
+            kept += 1;
+        }
+    }
+    kept
+}
+
+/// How a setting is named in the list of muted ones.
+pub fn mute_id(change: &Change) -> String {
+    format!("{}/{}/{}", change.file, change.section, change.key)
+}
+
 /// What writing `target` onto `current` would alter: only keys the target has, as a
 /// missing key is not a request to delete, and not the layout that moves on its own.
 pub(super) fn would_change(current: &SettingsMap, target: &SettingsMap) -> Vec<Change> {
@@ -854,6 +949,24 @@ mod tests {
         }
         assert_eq!(at_login(None, None, false, false, "InProgress"), AtLogin::Nothing);
         assert_eq!(at_login(Some("alt"), None, false, false, "EndOfGame"), AtLogin::Apply("alt"));
+    }
+
+    #[test]
+    fn changes_to_muted_settings_are_kept_in_the_baseline() {
+        let mut baseline = SettingsMap::default();
+        baseline.set("Game.cfg", "HUD", "ShowFPS", "0");
+        baseline.set("Input.ini", "GameEvents", "evtCastSpell1", "[q]");
+        let expected = baseline.clone();
+        let mut current = baseline.clone();
+        current.set("Game.cfg", "HUD", "ShowFPS", "1");
+        current.set("Input.ini", "GameEvents", "evtCastSpell1", "[a]");
+
+        let muted = ["Game.cfg/HUD/ShowFPS".to_owned()];
+        assert_eq!(keep_muted(&mut baseline, &expected, &current, &muted), 1);
+        // The muted one is no longer a difference; the other still is.
+        let left = user_changes(&baseline, &current);
+        assert_eq!(left.len(), 1);
+        assert_eq!(left[0].key, "evtCastSpell1");
     }
 
     #[test]
