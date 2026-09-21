@@ -8,6 +8,7 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Avatar from "$lib/components/avatar.svelte";
   import ChangesReview from "$lib/components/changes-review.svelte";
+  import Confirm from "$lib/components/confirm.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
@@ -91,6 +92,8 @@
   let saving = $state<"closed" | "menu" | "new">("closed");
   /** Whether the panel shows the settings that changed in place of its usual content. */
   let reviewing = $state(false);
+  /** Whether the footer is asking before it quits. */
+  let quitting = $state(false);
   const saveRow = "rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50";
 
   async function saveTo(action: () => Promise<string>) {
@@ -250,6 +253,11 @@
   <Separator />
 
   <footer class="flex items-center gap-1 p-1.5">
+    {#if quitting}
+      <!-- Quitting stops the auto-apply and the champion settings, so it asks first. -->
+      <p class="min-w-0 flex-1 truncate px-1.5">Quit mimic?</p>
+      <Confirm action="Quit" onconfirm={api.quit} oncancel={() => (quitting = false)} />
+    {:else}
     <!-- Opens the choice of where this account's current settings go, shown above. -->
     <Button
       variant="ghost"
@@ -264,9 +272,10 @@
     <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openManager)} aria-label="Open manager" title="Open manager">
       <Settings />
     </Button>
-    <Button variant="ghost" size="icon" onclick={api.quit} aria-label="Quit mimic" title="Quit mimic">
+    <Button variant="ghost" size="icon" onclick={() => (quitting = true)} aria-label="Quit mimic" title="Quit mimic">
       <Power />
     </Button>
+    {/if}
   </footer>
   {/if}
 </main>
