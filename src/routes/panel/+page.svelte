@@ -24,7 +24,7 @@
   let newName = $state("");
   /** What is running: a profile id, "save" or "undo". One action at a time. */
   let busy = $state<string | null>(null);
-  let message = $state<{ text: string; failed: boolean } | null>(null);| null>({ text: "Nothing is saved in the demo", failed: false }); // TEMP-MSG
+  let message = $state<{ text: string; failed: boolean } | null>(null);
   let copied = $state(false);
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
