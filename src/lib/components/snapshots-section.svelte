@@ -6,8 +6,9 @@
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as api from "$lib/api";
+  import { attempt, type Report } from "$lib/attempt";
 
-  let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
+  let { onmessage }: { onmessage: Report } = $props();
 
   let snapshots = $state<api.SnapshotView[]>([]);
   let busy = $state<string | null>(null);
@@ -26,27 +27,17 @@
   async function restore(snapshot: api.SnapshotView) {
     if (busy) return;
     busy = snapshot.id;
-    try {
-      onmessage(await api.restoreSnapshot(snapshot.id), false);
-    } catch (err) {
-      onmessage(String(err), true);
-    } finally {
-      busy = null;
-      refresh();
-    }
+    await attempt(onmessage, () => api.restoreSnapshot(snapshot.id));
+    busy = null;
+    refresh();
   }
 
   async function undo() {
     if (busy) return;
     busy = "undo";
-    try {
-      onmessage(await api.undoLast(), false);
-    } catch (err) {
-      onmessage(String(err), true);
-    } finally {
-      busy = null;
-      refresh();
-    }
+    await attempt(onmessage, api.undoLast);
+    busy = null;
+    refresh();
   }
 
   const when = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });

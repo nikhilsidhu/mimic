@@ -4,22 +4,24 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
+  import SectionHeader from "$lib/components/section-header.svelte";
+  import SettingRow from "$lib/components/setting-row.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
+  import { attempt, type Report } from "$lib/attempt";
   import { settingLabel } from "$lib/binds";
   import * as api from "$lib/api";
-  import { getTheme, setTheme, type Theme } from "$lib/theme";
+  import { getTheme, setTheme, THEMES, type Theme } from "$lib/theme";
 
-  let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
+  let { onmessage }: { onmessage: Report } = $props();
 
   let autostart = $state(false);
   let notices = $state(true);
-  let theme = $state<Theme>("system");
+  let theme = $state<Theme>("dark");
   let update = $state<api.UpdateStatus | null>(null);
   let updating = $state(false);
   // A check just now found nothing newer.
   let upToDate = $state(false);
-  const themes: Theme[] = ["system", "light", "dark"];
   let install = $state<string | null>(null);
 
   // Settings muted from the prompt about changed settings, as `file/section/key`.
@@ -45,12 +47,7 @@
   });
 
   async function chooseInstall() {
-    try {
-      const said = await api.chooseInstall();
-      if (said) onmessage(said, false);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
+    await attempt(onmessage, api.chooseInstall);
     refreshInstall();
   }
 
@@ -58,74 +55,52 @@
   async function updateOrCheck() {
     if (updating) return;
     updating = true;
-    try {
-      if (update?.available) await api.installUpdate();
-      else {
-        await api.checkUpdate();
-        await refreshUpdate();
-        upToDate = !update?.available;
-      }
-    } catch (err) {
-      onmessage(String(err), true);
-    } finally {
-      updating = false;
-    }
-    refreshUpdate();
+    const worked = await attempt(onmessage, async () => {
+      if (update?.available) return api.installUpdate();
+      await api.checkUpdate();
+    });
+    await refreshUpdate();
+    upToDate = worked && !update?.available;
+    updating = false;
   }
 
+  // A switch shows what is stored, so it is read back whether or not the change worked.
   async function setNotices(enabled: boolean) {
-    try {
-      await api.setShowsNotices(enabled);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
+    await attempt(onmessage, () => api.setShowsNotices(enabled));
     notices = await api.getShowsNotices();
   }
 
-  async function unmute(id: string) {
-    try {
-      await api.unmuteSetting(id);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
-    refreshMuted();
+  async function setAutostart(enabled: boolean) {
+    await attempt(onmessage, () => api.setAutostart(enabled));
+    autostart = await api.getAutostart();
   }
 
-  async function setAutostart(enabled: boolean) {
-    try {
-      await api.setAutostart(enabled);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
-    autostart = await api.getAutostart();
+  async function unmute(id: string) {
+    await attempt(onmessage, () => api.unmuteSetting(id));
+    refreshMuted();
   }
 </script>
 
-<header class="pt-2">
-  <h2 class="text-lg font-semibold tracking-tight">Settings</h2>
-</header>
+<SectionHeader title="Settings" />
 
 <section class="overflow-hidden rounded-lg border border-border">
-  <label class="flex min-h-14 items-center gap-3 px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">Start with Windows</p>
+  <SettingRow title="Start with Windows" label>
+    {#snippet description()}
       <p class="text-xs text-muted-foreground">Starts in the tray, without opening a window.</p>
-    </div>
+    {/snippet}
     <Switch checked={autostart} onCheckedChange={setAutostart} />
-  </label>
-  <label class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">Notices</p>
+  </SettingRow>
+
+  <SettingRow title="Notices" label>
+    {#snippet description()}
       <p class="text-xs text-muted-foreground">Pop up when settings are applied automatically.</p>
-    </div>
+    {/snippet}
     <Switch checked={notices} onCheckedChange={setNotices} />
-  </label>
-  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">Theme</p>
-    </div>
+  </SettingRow>
+
+  <SettingRow title="Theme">
     <div class="flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
-      {#each themes as option (option)}
+      {#each THEMES as option (option)}
         <button
           class="rounded px-2.5 py-1 text-xs capitalize text-muted-foreground aria-checked:bg-accent aria-checked:text-accent-foreground"
           role="radio"
@@ -139,25 +114,25 @@
         </button>
       {/each}
     </div>
-  </div>
-  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">League folder</p>
+  </SettingRow>
+
+  <SettingRow title="League folder">
+    {#snippet description()}
       <p class="truncate text-xs" class:text-muted-foreground={install} class:text-destructive={!install} title={install}>
         {install ?? "Not found. Choose the folder that holds LeagueClient.exe."}
       </p>
-    </div>
+    {/snippet}
     <Button variant="outline" size="sm" onclick={chooseInstall}>Choose…</Button>
-  </div>
-  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <div class="min-w-0 flex-1">
-      <p class="text-sm font-medium">Data</p>
+  </SettingRow>
+
+  <SettingRow title="Data">
+    {#snippet description()}
       <p class="text-xs text-muted-foreground">Profiles, history and logs.</p>
-    </div>
+    {/snippet}
     <Button variant="outline" size="sm" onclick={() => api.openDataFolder()}>Open folder</Button>
-  </div>
-  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
-    <p class="min-w-0 flex-1 text-sm font-medium">Version</p>
+  </SettingRow>
+
+  <SettingRow title="Version">
     <span class="text-xs text-faint">{update?.current ?? ""}</span>
     {#if update?.available}
       <Button size="sm" disabled={updating} onclick={updateOrCheck}>
@@ -179,11 +154,12 @@
         {/if}
       </Button>
     {/if}
-  </div>
+  </SettingRow>
+
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">
       <p class="text-sm font-medium">Muted settings</p>
-      <p class="text-xs text-muted-foreground">mimic never asks about changes to these.</p>
+      <p class="text-xs text-muted-foreground">No prompt when these change.</p>
       <ul class="mt-2 flex flex-wrap gap-1.5">
         {#each muted as id (id)}
           <li class="flex items-center gap-1 rounded-md border border-border py-0.5 pr-1 pl-2 text-xs" title={id}>

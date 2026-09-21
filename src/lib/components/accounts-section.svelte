@@ -7,8 +7,9 @@
   import { Switch } from "$lib/components/ui/switch";
   import Status from "$lib/components/status.svelte";
   import * as api from "$lib/api";
+  import { attempt, type Report } from "$lib/attempt";
 
-  let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
+  let { onmessage }: { onmessage: Report } = $props();
 
   let accounts = $state<api.AccountRow[]>([]);
   /** The account asking to confirm being forgotten, by puuid. */
@@ -22,20 +23,12 @@
   });
 
   async function setAutoApply(account: api.AccountRow, enabled: boolean) {
-    try {
-      await api.setAccountAutoApply(account.puuid, enabled);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
+    await attempt(onmessage, () => api.setAccountAutoApply(account.puuid, enabled));
     refresh();
   }
 
   async function forget(account: api.AccountRow) {
-    try {
-      onmessage(await api.forgetAccount(account.puuid), false);
-    } catch (err) {
-      onmessage(String(err), true);
-    }
+    await attempt(onmessage, () => api.forgetAccount(account.puuid));
     forgetting = null;
     refresh();
   }
