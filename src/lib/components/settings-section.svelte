@@ -4,7 +4,6 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
-  import Confirm from "$lib/components/confirm.svelte";
   import SectionHeader from "$lib/components/section-header.svelte";
   import SettingRow from "$lib/components/setting-row.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -24,8 +23,6 @@
   // A check just now found nothing newer.
   let upToDate = $state(false);
   let install = $state<string | null>(null);
-  /** Whether the Quit row is asking before it quits. */
-  let quitting = $state(false);
 
   // Settings muted from the prompt about changed settings, as `file/section/key`.
   let muted = $state<string[]>([]);
@@ -159,17 +156,6 @@
     {/if}
   </SettingRow>
 
-  <SettingRow title="Quit mimic">
-    {#snippet description()}
-      <p class="text-xs text-muted-foreground">Nothing is applied while it is not running.</p>
-    {/snippet}
-    {#if quitting}
-      <Confirm action="Quit" onconfirm={api.quit} oncancel={() => (quitting = false)} />
-    {:else}
-      <Button variant="outline" size="sm" onclick={() => (quitting = true)}>Quit</Button>
-    {/if}
-  </SettingRow>
-
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">
       <p class="text-sm font-medium">Muted settings</p>
@@ -179,7 +165,7 @@
           <li class="flex items-center gap-1 rounded-md border border-border py-0.5 pr-1 pl-2 text-xs" title={id}>
             {settingLabel(id.split("/").at(-1) ?? id)}
             <button
-              class="rounded p-0.5 text-faint hover:text-foreground"
+              class="icon-glow rounded p-0.5 text-faint hover:text-hover"
               aria-label="Ask about {id} again"
               title="Ask about this again"
               onclick={() => unmute(id)}

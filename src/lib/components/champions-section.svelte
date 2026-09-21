@@ -152,7 +152,7 @@
             {:else if editingCard === overlay.champion.id}
               <span class="flex items-center">
                 <button
-                  class="-mr-1 flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                  class="icon-glow hover-danger -mr-1 flex size-6 items-center justify-center rounded text-muted-foreground"
                   disabled={busy}
                   title="Remove this setting from {overlay.champion.name}"
                   aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"

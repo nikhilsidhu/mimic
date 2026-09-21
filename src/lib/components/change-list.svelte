@@ -29,7 +29,7 @@
       </span>
       {#if off}
         <button
-          class="shrink-0 rounded p-0.5 text-muted-foreground hover:text-foreground"
+          class="icon-glow shrink-0 rounded p-0.5 text-muted-foreground hover:text-hover"
           title="Undo: ask about this setting after all"
           aria-label="Ask about {settingLabel(change.key)} after all"
           onclick={() => onunmute?.(change)}
@@ -38,7 +38,7 @@
         </button>
       {:else if onmute}
         <button
-          class="shrink-0 rounded p-0.5 text-faint hover:text-foreground"
+          class="icon-glow shrink-0 rounded p-0.5 text-faint hover:text-hover"
           title="Never ask about this setting again"
           aria-label="Don't ask about {settingLabel(change.key)} again"
           onclick={() => onmute(change)}

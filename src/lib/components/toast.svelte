@@ -34,7 +34,7 @@
       {#if message.failed}<CircleAlert class="mt-0.5 size-4 shrink-0 text-destructive" />{/if}
       <p class="min-w-0 flex-1 break-words">{message.text}</p>
       <button
-        class="shrink-0 rounded p-0.5 text-faint hover:text-foreground"
+        class="icon-glow shrink-0 rounded p-0.5 text-faint hover:text-hover"
         aria-label="Dismiss"
         onclick={() => (message = null)}
       >

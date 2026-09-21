@@ -8,14 +8,18 @@
 
 const LAYER = "icon-glow-layer";
 
+/** Watches the hovered button for its icon being swapped, as Copy is for a tick once clicked. */
+let swaps: MutationObserver | null = null;
+
 function button(event: Event): HTMLElement | null {
   return event.target instanceof Element ? event.target.closest<HTMLElement>(".icon-glow") : null;
 }
 
-function enter(event: PointerEvent) {
-  const host = button(event);
-  const icon = host?.querySelector<SVGElement>(":scope > svg");
-  if (!host || !icon || host.querySelector(`.${LAYER}`)) return;
+/** Puts a copy of the button's icon behind it, replacing any earlier copy. */
+function light(host: HTMLElement) {
+  host.querySelector(`:scope > .${LAYER}`)?.remove();
+  const icon = host.querySelector<SVGElement>(":scope > svg");
+  if (!icon) return;
   // A wrapper the size of the button, so that the spot is placed in the button's coordinates,
   // which is what the pointer's position is measured in.
   const layer = document.createElement("span");
@@ -23,7 +27,22 @@ function enter(event: PointerEvent) {
   layer.setAttribute("aria-hidden", "true");
   layer.append(icon.cloneNode(true));
   host.prepend(layer);
+}
+
+function enter(event: PointerEvent) {
+  const host = button(event);
+  if (!host || host.querySelector(`:scope > .${LAYER}`)) return;
+  light(host);
   follow(event);
+  // The copy has the old icon's shape and colour; a new icon gets a new copy. Its own coming
+  // and going are changes to the button's children too, and are not to be answered.
+  swaps?.disconnect();
+  swaps = new MutationObserver((changes) => {
+    const ours = (node: Node) => node instanceof Element && node.classList.contains(LAYER);
+    const swapped = changes.some((change) => [...change.addedNodes, ...change.removedNodes].some((node) => !ours(node)));
+    if (swapped) light(host);
+  });
+  swaps.observe(host, { childList: true });
 }
 
 function follow(event: PointerEvent) {
@@ -38,7 +57,9 @@ function leave(event: PointerEvent) {
   const host = button(event);
   // `pointerout` also fires when moving between the button's own children.
   if (!host || (event.relatedTarget instanceof Node && host.contains(event.relatedTarget))) return;
-  host.querySelector(`.${LAYER}`)?.remove();
+  swaps?.disconnect();
+  swaps = null;
+  host.querySelector(`:scope > .${LAYER}`)?.remove();
 }
 
 /** Starts lighting icon buttons under the pointer. Returns a function that stops. */
@@ -47,6 +68,7 @@ export function watchGlow(): () => void {
   window.addEventListener("pointermove", follow, { passive: true });
   window.addEventListener("pointerout", leave, { passive: true });
   return () => {
+    swaps?.disconnect();
     window.removeEventListener("pointerover", enter);
     window.removeEventListener("pointermove", follow);
     window.removeEventListener("pointerout", leave);
