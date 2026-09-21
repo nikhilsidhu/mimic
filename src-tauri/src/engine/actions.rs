@@ -116,6 +116,11 @@ impl Engine {
     pub async fn save_current_as(&self, name: &str) -> Result<Profile> {
         let _guard = self.inner.action_lock.lock().await;
         let connection = self.connection()?;
+        // As for updating a profile: with a champion's settings on, what is on the account is not
+        // the account's own, and the profile would carry one champion's keys to every account.
+        if self.account().is_some_and(|account| account.overlay.is_some()) {
+            return Err(ActionError::OverlayActive);
+        }
         let settings = read_settings(&connection)?;
 
         let profile = Profile::new(name, settings.clone());

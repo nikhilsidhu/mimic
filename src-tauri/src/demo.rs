@@ -105,7 +105,9 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
     faker.profile_id = Some("demo-main".to_owned());
     faker.auto_apply = true;
     faker.baseline = Some(main.clone());
-    faker.overlay = Some(AZIR);
+    // `MIMIC_DEMO_NO_CHAMPION=1` leaves the champion's settings off, for trying what is refused
+    // while they are on, such as saving the account's settings.
+    faker.overlay = std::env::var_os("MIMIC_DEMO_NO_CHAMPION").is_none().then_some(AZIR);
     faker.icon = any_profile_icon(real_data_dir);
     faker.level = Some(712);
     accounts.accounts.insert(PUUID.to_owned(), faker);
