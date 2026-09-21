@@ -5,6 +5,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
+  import Confirm from "$lib/components/confirm.svelte";
   import Status from "$lib/components/status.svelte";
   import * as api from "$lib/api";
   import { attempt, type Report } from "$lib/attempt";
@@ -41,8 +42,7 @@
         <p class="min-w-0 flex-1 truncate text-sm">
           Forget <span class="font-medium">{account.name}</span>?
         </p>
-        <Button variant="destructive" size="sm" onclick={() => forget(account)}>Forget</Button>
-        <Button variant="ghost" size="sm" onclick={() => (forgetting = null)}>Cancel</Button>
+        <Confirm action="Forget" onconfirm={() => forget(account)} oncancel={() => (forgetting = null)} />
       {:else}
         <div class="min-w-0 flex-1">
           <p class="flex items-center gap-2 truncate text-sm font-medium">

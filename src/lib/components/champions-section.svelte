@@ -8,6 +8,7 @@
   import X from "@lucide/svelte/icons/x";
   import AddChampion from "$lib/components/add-champion.svelte";
   import Bind from "$lib/components/bind.svelte";
+  import Confirm from "$lib/components/confirm.svelte";
   import SectionHeader from "$lib/components/section-header.svelte";
   import Status from "$lib/components/status.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -96,15 +97,7 @@
         <img src={overlay.champion.icon} alt="" class="size-7 shrink-0 rounded-md" />
         {#if deleting === id}
           <p class="min-w-0 flex-1 truncate text-sm">Delete {overlay.champion.name}?</p>
-          <Button
-            variant="destructive"
-            size="sm"
-            disabled={busy}
-            onclick={() => run(() => api.deleteOverlay(id))}
-          >
-            Delete
-          </Button>
-          <Button variant="ghost" size="sm" onclick={() => (deleting = null)}>Cancel</Button>
+          <Confirm action="Delete" disabled={busy} onconfirm={() => run(() => api.deleteOverlay(id))} oncancel={() => (deleting = null)} />
         {:else}
           <p class="min-w-0 truncate text-sm font-medium">{overlay.champion.name}</p>
           {#if view?.activeOverlay?.id === overlay.champion.id}<Status>active</Status>{/if}
@@ -155,17 +148,12 @@
             </span>
             {#if removing === `${id}/${api.muteId(setting)}`}
               <span class="absolute inset-y-0 right-0 flex items-center gap-1 bg-linear-to-l from-background from-85% to-transparent pl-8">
-                <Button
-                  variant="destructive"
-                  size="sm"
+                <Confirm
+                  action="Remove"
                   disabled={busy}
-                  onclick={() => {
-                      run(() => api.removeOverlaySetting(id, setting));
-                  }}
-                >
-                  Remove
-                </Button>
-                <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
+                  onconfirm={() => run(() => api.removeOverlaySetting(id, setting))}
+                  oncancel={() => (removing = null)}
+                />
               </span>
             {:else if editingCard === overlay.champion.id}
               <span class="flex items-center">
