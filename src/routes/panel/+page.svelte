@@ -5,6 +5,7 @@
   import FileText from "@lucide/svelte/icons/file-text";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Power from "@lucide/svelte/icons/power";
+  import Save from "@lucide/svelte/icons/save";
   import Settings from "@lucide/svelte/icons/settings";
   import Avatar from "$lib/components/avatar.svelte";
   import { Button } from "$lib/components/ui/button";
@@ -194,13 +195,7 @@
 
   <Separator />
 
-  {#if saving === "closed"}
-    <div class="p-2">
-      <Button class="w-full" variant="secondary" disabled={!view?.connected || busy !== null} onclick={() => (saving = "menu")}>
-        Save current settings…
-      </Button>
-    </div>
-  {:else if saving === "menu"}
+  {#if saving === "menu"}
     <!-- Where this account's current settings go. -->
     <div class="flex flex-col gap-0.5 p-1.5">
       {#if activeProfile}
@@ -219,7 +214,7 @@
       </button>
       <Button variant="ghost" size="sm" onclick={() => (saving = "closed")}>Cancel</Button>
     </div>
-  {:else}
+  {:else if saving === "new"}
     <form class="flex gap-1.5 p-2" onsubmit={save}>
       <Input bind:value={newName} placeholder="Profile name" maxlength={40} disabled={busy !== null} />
       <Button type="submit" disabled={busy !== null || !newName.trim()}>
@@ -239,6 +234,16 @@
   <Separator />
 
   <footer class="flex items-center gap-1 p-1.5">
+    <!-- Opens the choice of where this account's current settings go, shown above. -->
+    <Button
+      variant="ghost"
+      size="sm"
+      disabled={!view?.connected || busy !== null}
+      aria-expanded={saving !== "closed"}
+      onclick={() => (saving = saving === "closed" ? "menu" : "closed")}
+    >
+      <Save />Save settings
+    </Button>
     <span class="flex-1"></span>
     <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openLogs)} aria-label="Open logs folder" title="Open logs folder">
       <FileText />
