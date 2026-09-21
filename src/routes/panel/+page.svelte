@@ -201,12 +201,12 @@
       {#if activeProfile}
         <button class={saveRow} disabled={busy !== null} onclick={() => saveTo(() => api.updateProfile(activeProfile.id))}>
           <span class="block font-medium">Update {activeProfile.name}</span>
-          <span class="block text-muted-foreground">Overwrite it with what is on this account now.</span>
+          <span class="block text-muted-foreground">Replaces its settings.</span>
         </button>
       {/if}
       <button class={saveRow} onclick={() => (saving = "new")}>
         <span class="block font-medium">New profile</span>
-        <span class="block text-muted-foreground">Keep them under a name of their own.</span>
+        <span class="block text-muted-foreground">Under a new name.</span>
       </button>
       <button class={saveRow} onclick={() => leaveFor(api.addChampion)}>
         <span class="block font-medium">For a champion</span>
