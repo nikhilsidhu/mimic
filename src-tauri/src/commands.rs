@@ -30,6 +30,8 @@ pub struct View {
     /// The profile waiting for the next login, by name.
     pending: Option<String>,
     profiles: Vec<ProfileView>,
+    /// How many settings the user changed and has not decided about yet.
+    changed: usize,
     /// The champion whose settings are on top of this account's base right now.
     active_overlay: Option<ChampionView>,
     overlays: Vec<OverlayView>,
@@ -144,6 +146,11 @@ pub fn view(engine: State<Engine>) -> View {
                 name: profile.name,
             })
             .collect(),
+        changed: if crate::demo::enabled() {
+            crate::demo::drift().changes.len()
+        } else {
+            engine.drift().ok().flatten().map_or(0, |drift| drift.changes.len())
+        },
         active_overlay: engine.active_overlay().map(|id| ChampionView::of(&engine, id)),
         overlays: engine
             .overlays()
@@ -418,8 +425,19 @@ pub fn drift(engine: State<Engine>) -> Option<Drift> {
     })
 }
 
+/// Brings back the prompt about changed settings after it was closed without a decision.
+#[tauri::command]
+pub fn review_changes(app: AppHandle) {
+    let _ = tray::hide_panel(&app);
+    tray::show_drift_prompt(&app);
+}
+
 #[tauri::command]
 pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> Answer {
+    // The demo has no client to write to.
+    if crate::demo::enabled() {
+        return Ok("Nothing is saved in the demo".to_owned());
+    }
     engine.resolve_drift(choice).await.map_err(|err| format!("Could not do that: {err}"))
 }
 

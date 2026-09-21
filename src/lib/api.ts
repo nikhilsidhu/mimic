@@ -38,6 +38,8 @@ export type View = {
   /** The profile waiting for the next login, by name. */
   pending: string | null;
   profiles: ProfileView[];
+  /** How many settings the user changed and has not decided about yet. */
+  changed: number;
   /** The champion whose settings are on top of this account's base right now. */
   activeOverlay: Champion | null;
   overlays: Overlay[];
@@ -120,6 +122,8 @@ export const removeOverlaySetting = (champion: number, setting: { file: string; 
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
+/** Brings back the prompt about changed settings after it was closed without a decision. */
+export const reviewChanges = () => invoke<void>("review_changes");
 /** How a setting is named in the list of muted ones. */
 export const muteId = (change: { file: string; section: string; key: string }) =>
   `${change.file}/${change.section}/${change.key}`;

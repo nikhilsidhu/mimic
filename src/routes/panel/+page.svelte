@@ -127,6 +127,16 @@
     </div>
   {/if}
 
+  {#if view?.changed}
+    <!-- The prompt about them was closed without a decision; this brings it back. -->
+    <div class="flex items-center gap-2 px-3 pb-2.5">
+      <span class="min-w-0 flex-1 truncate">
+        {view.changed === 1 ? "1 setting" : `${view.changed} settings`} changed
+      </span>
+      <Button variant="secondary" size="sm" onclick={() => api.reviewChanges()}>Review</Button>
+    </div>
+  {/if}
+
   {#if activeProfile}
     <label class="flex items-center gap-2 px-3 pb-2.5 text-muted-foreground">
       <span class="min-w-0 flex-1 leading-snug">

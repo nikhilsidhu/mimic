@@ -2,6 +2,7 @@
 <script lang="ts">
   import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
+  import X from "@lucide/svelte/icons/x";
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
@@ -54,9 +55,15 @@
   }
 </script>
 
+<svelte:window onkeydown={(event) => event.key === "Escape" && close()} />
+
 <main class="flex h-screen flex-col gap-3 border border-border bg-popover p-4 text-popover-foreground">
-  <div>
-    <p class="text-sm font-medium">
+  <div class="relative">
+    <!-- Decide later: the changes stay, and the tray panel offers to review them. -->
+    <Button class="absolute -top-1.5 -right-1.5 text-faint" variant="ghost" size="icon-sm" onclick={close} aria-label="Decide later" title="Decide later">
+      <X />
+    </Button>
+    <p class="pr-8 text-sm font-medium">
       {#if drift?.reset}
         Riot reset your settings
       {:else}
@@ -109,7 +116,15 @@
       </div>
     {/if}
     <div class="flex gap-2">
-      <Button class="flex-1" variant="ghost" disabled={busy} onclick={() => choose("keepHere")}>Keep here only</Button>
+      <Button
+        class="flex-1"
+        variant="ghost"
+        disabled={busy}
+        onclick={() => choose("keepHere")}
+        title="Keep the changes on this account. Your profile and other accounts stay as they are."
+      >
+        Only this account
+      </Button>
       <Button class="flex-1" variant={drift?.reset ? "default" : "ghost"} disabled={busy} onclick={() => choose("revert")}>
         {drift?.reset ? "Restore my settings" : "Revert"}
       </Button>
