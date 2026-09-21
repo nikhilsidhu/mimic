@@ -16,6 +16,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::lcu::LcuClient;
 
+/// League's data lists some champions a second time for special game modes, under ids from
+/// 60000 up (Ahri is 103 and 60103). Nobody picks those in a normal game.
+const GAME_MODE_COPIES: u32 = 60_000;
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Champion {
     pub id: u32,
@@ -39,7 +43,8 @@ impl Champions {
     /// The cached champions, sorted by name. Empty until a client has been seen once.
     pub fn list(&self) -> Vec<Champion> {
         let Ok(bytes) = std::fs::read(self.dir.join("champions.json")) else { return Vec::new() };
-        serde_json::from_slice(&bytes).unwrap_or_default()
+        let champions: Vec<Champion> = serde_json::from_slice(&bytes).unwrap_or_default();
+        champions.into_iter().filter(|champion| champion.id < GAME_MODE_COPIES).collect()
     }
 
     pub fn name(&self, id: u32) -> Option<String> {
