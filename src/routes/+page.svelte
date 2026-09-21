@@ -22,6 +22,7 @@
   import SettingsSection from "$lib/components/settings-section.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
+  import Toast from "$lib/components/toast.svelte";
   import * as api from "$lib/api";
   import { settingLabel } from "$lib/binds";
 
@@ -216,12 +217,6 @@
         {/each}
       </section>
 
-      {#if message}
-        <p class="text-sm" class:text-destructive={message.failed} class:text-muted-foreground={!message.failed}>
-          {message.text}
-        </p>
-      {/if}
-
       <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
 
       <header class="flex items-end justify-between gap-4 pt-2">
@@ -310,4 +305,5 @@
       <SnapshotsSection onmessage={(text, failed) => (message = { text, failed })} />
     </main>
   </ScrollArea>
+  <Toast bind:message />
 </div>
