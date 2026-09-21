@@ -68,6 +68,8 @@
   async function refresh() {
     failure = null;
     drift = await api.getDrift();
+    const seen = (drift?.changes ?? []).map(api.muteId).filter((id) => !order.includes(id));
+    if (seen.length) order = [...order, ...seen];
     // Whatever changed may have been changed back in the meantime. Rows muted just now keep this
     // open: their mute can still be undone here.
     if (!drift && muted.length === 0) onclose();
@@ -105,10 +107,12 @@
   /** The rows muted while this is open. They stay where they were, with the way back on them. */
   let muted = $state<api.Change[]>([]);
 
-  // What is still to decide, with the muted rows back in their places: both are in the order
-  // the settings are stored in.
+  /** The order rows first appeared in, by id, so that muting one moves nothing. */
+  let order = $state<string[]>([]);
+
+  // What is still to decide, with the muted rows back where they were.
   const rows = $derived(
-    [...(drift?.changes ?? []), ...muted].sort((a, b) => api.muteId(a).localeCompare(api.muteId(b))),
+    [...(drift?.changes ?? []), ...muted].sort((a, b) => order.indexOf(api.muteId(a)) - order.indexOf(api.muteId(b))),
   );
 
   const mute = (change: api.Change) =>
