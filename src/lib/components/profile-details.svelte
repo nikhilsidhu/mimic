@@ -30,7 +30,7 @@
 
   const shown = $derived(
     (details?.settings ?? []).filter((row) =>
-      `${row.section} ${row.key} ${row.value}`.toLowerCase().includes(filter.trim().toLowerCase()),
+      `${row.section} ${row.key} ${settingLabel(row.key)} ${row.value}`.toLowerCase().includes(filter.trim().toLowerCase()),
     ),
   );
 </script>
