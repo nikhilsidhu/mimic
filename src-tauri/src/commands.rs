@@ -451,13 +451,6 @@ pub fn drift(engine: State<Engine>) -> Option<Drift> {
     })
 }
 
-/// Brings back the prompt about changed settings after it was closed without a decision.
-#[tauri::command]
-pub fn review_changes(app: AppHandle) {
-    let _ = tray::hide_panel(&app);
-    tray::show_drift_prompt(&app);
-}
-
 #[tauri::command]
 pub async fn resolve_drift(engine: State<'_, Engine>, choice: DriftChoice) -> Answer {
     // The demo has no client to write to.
@@ -588,13 +581,6 @@ pub fn open_data_folder(app: AppHandle) -> Result<(), String> {
     let data = platform::data_dir().ok_or("APPDATA is not set")?;
     std::fs::create_dir_all(&data).map_err(|err| err.to_string())?;
     app.opener().open_path(data.to_string_lossy(), None::<&str>).map_err(|err| err.to_string())
-}
-
-#[tauri::command]
-pub fn open_logs(app: AppHandle) -> Result<(), String> {
-    let logs = platform::data_dir().ok_or("APPDATA is not set")?.join("logs");
-    std::fs::create_dir_all(&logs).map_err(|err| err.to_string())?;
-    app.opener().open_path(logs.to_string_lossy(), None::<&str>).map_err(|err| err.to_string())
 }
 
 /// Shows `message` in the notice popup. For windows that close before their action

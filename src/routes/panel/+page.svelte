@@ -2,12 +2,12 @@
   import { onMount } from "svelte";
   import Check from "@lucide/svelte/icons/check";
   import Copy from "@lucide/svelte/icons/copy";
-  import FileText from "@lucide/svelte/icons/file-text";
   import LoaderCircle from "@lucide/svelte/icons/loader-circle";
   import Power from "@lucide/svelte/icons/power";
   import Save from "@lucide/svelte/icons/save";
   import Settings from "@lucide/svelte/icons/settings";
   import Avatar from "$lib/components/avatar.svelte";
+  import ChangesReview from "$lib/components/changes-review.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
@@ -49,7 +49,8 @@
   onMount(() => {
     refresh();
     const stop = api.onViewChanged(refresh);
-    const onKey = (event: KeyboardEvent) => event.key === "Escape" && api.dismiss();
+    // While reviewing, Esc goes back to the panel; otherwise it closes it.
+    const onKey = (event: KeyboardEvent) => event.key === "Escape" && !reviewing && api.dismiss();
     window.addEventListener("keydown", onKey);
     return () => {
       stop();
@@ -88,6 +89,8 @@
 
   /** Saving: not asked for, choosing where to, or naming a new profile. */
   let saving = $state<"closed" | "menu" | "new">("closed");
+  /** Whether the panel shows the settings that changed in place of its usual content. */
+  let reviewing = $state(false);
   const saveRow = "rounded-md px-2 py-1.5 text-left transition-colors hover:bg-accent disabled:opacity-50";
 
   async function saveTo(action: () => Promise<string>) {
@@ -103,6 +106,19 @@
 </script>
 
 <main class="flex h-screen flex-col overflow-hidden border border-border bg-background text-xs select-none">
+  {#if reviewing}
+    <!-- The changed settings are gone through right here, where Review was clicked. -->
+    <div class="flex min-h-0 flex-1 flex-col p-3">
+      <ChangesReview
+        onclose={() => (reviewing = false)}
+        ondone={(said) => {
+          reviewing = false;
+          say(said);
+          refresh();
+        }}
+      />
+    </div>
+  {:else}
   <header class="flex items-center gap-2.5 px-3 py-2.5">
     <Avatar account={view?.account} />
     <div class="min-w-0 flex-1">
@@ -146,7 +162,7 @@
       <span class="min-w-0 flex-1 truncate">
         {view.changed === 1 ? "1 setting" : `${view.changed} settings`} changed
       </span>
-      <Button variant="secondary" size="sm" onclick={() => api.reviewChanges()}>Review</Button>
+      <Button variant="secondary" size="sm" onclick={() => (reviewing = true)}>Review</Button>
     </div>
   {/if}
 
@@ -206,7 +222,7 @@
       {/if}
       <button class={saveRow} onclick={() => (saving = "new")}>
         <span class="block font-medium">New profile</span>
-        <span class="block text-muted-foreground">Under a new name.</span>
+        <span class="block text-muted-foreground">As a separate profile.</span>
       </button>
       <button class={saveRow} onclick={() => leaveFor(api.addChampion)}>
         <span class="block font-medium">For a champion</span>
@@ -245,9 +261,6 @@
       <Save />Save settings
     </Button>
     <span class="flex-1"></span>
-    <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openLogs)} aria-label="Open logs folder" title="Open logs folder">
-      <FileText />
-    </Button>
     <Button variant="ghost" size="icon" onclick={() => leaveFor(api.openManager)} aria-label="Open manager" title="Open manager">
       <Settings />
     </Button>
@@ -255,4 +268,5 @@
       <Power />
     </Button>
   </footer>
+  {/if}
 </main>

@@ -132,8 +132,6 @@ export const removeOverlaySetting = (champion: number, setting: { file: string; 
 export const saveCurrent = (name: string) => invoke<string>("save_current", { name });
 export const undoLast = () => invoke<string>("undo_last");
 export const resolveDrift = (choice: DriftChoice) => invoke<string>("resolve_drift", { choice });
-/** Brings back the prompt about changed settings after it was closed without a decision. */
-export const reviewChanges = () => invoke<void>("review_changes");
 /** How a setting is named in the list of muted ones. */
 export const muteId = (change: { file: string; section: string; key: string }) =>
   `${change.file}/${change.section}/${change.key}`;
@@ -149,7 +147,6 @@ export const openManager = () => invoke<void>("open_manager");
 export const addChampion = () => invoke<void>("add_champion");
 /** Calls `onAsk` when the manager is asked to show its champion picker. */
 export const onAddChampion = (onAsk: () => void) => on("add-champion", onAsk);
-export const openLogs = () => invoke<void>("open_logs");
 /** Opens the folder with everything mimic stores. */
 export const openDataFolder = () => invoke<void>("open_data_folder");
 /** Whether what mimic does by itself, such as applying at login, pops up a notice. */

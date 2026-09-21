@@ -63,7 +63,7 @@ The game reads its settings once while loading, so they take effect in the next 
 
 ## Reporting a problem
 
-Open an [issue](https://github.com/nikhilsidhu/mimic/issues) and say what you did and what happened. Logs help a lot: the tray panel has a button that opens the logs folder, `%APPDATA%\mimic\logs`. They contain your Riot ID, so look before you post.
+Open an [issue](https://github.com/nikhilsidhu/mimic/issues) and say what you did and what happened. Logs help a lot: in the manager, Settings > Data opens mimic's folder, and the logs are in `logs`. They contain your Riot ID, so look before you post.
 
 ## Development
 
