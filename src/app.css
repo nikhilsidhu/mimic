@@ -265,3 +265,83 @@
 	}
 }
 
+
+/* The avatar flare, from ghost: a coloured light that follows the pointer across the avatar, in a
+   colour taken from the avatar itself (`lib/avatar-glow.ts`). Behind it a blurred halo that
+   breathes while hovered; over it a highlight. */
+@keyframes vapor-breathe {
+	0%,
+	100% {
+		transform: translateZ(0) scale(1);
+	}
+	50% {
+		transform: translateZ(0) scale(1.12);
+	}
+}
+
+/* Its own stacking context, so that the halo goes behind the avatar and not behind the page. */
+.avatar-flare {
+	isolation: isolate;
+}
+
+/* Ghost gives the halo a 10px overhang and 6px of blur, but its avatars sit in a sidebar cell
+   barely larger than they are, which clips all but a few pixels of it. Here nothing clips it, so
+   it is made that size to begin with. */
+.avatar-flare::before {
+	content: "";
+	position: absolute;
+	inset: -4px;
+	z-index: -1;
+	border-radius: inherit;
+	pointer-events: none;
+	background: radial-gradient(
+		circle at var(--flare-x, 50%) var(--flare-y, 50%),
+		color-mix(in srgb, var(--glow-color, transparent) 40%, transparent) 0%,
+		color-mix(in srgb, var(--glow-color, transparent) 14%, transparent) 45%,
+		transparent 80%
+	);
+	filter: blur(4px);
+	opacity: var(--flare-opacity, 0);
+	transition: opacity 0.25s ease-out;
+	animation: vapor-breathe 4s ease-in-out infinite paused;
+	transform: translateZ(0);
+	will-change: transform;
+}
+
+.avatar-flare:hover::before {
+	animation-play-state: running;
+}
+
+.avatar-flare::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	border-radius: inherit;
+	pointer-events: none;
+	background: radial-gradient(
+		circle at var(--flare-x, 50%) var(--flare-y, 50%),
+		color-mix(in srgb, var(--glow-color, transparent) 38%, transparent) 0%,
+		color-mix(in srgb, var(--glow-color, transparent) 10%, transparent) 42%,
+		transparent 68%
+	);
+	opacity: var(--flare-opacity, 0);
+	transition: opacity 0.15s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.avatar-flare::before {
+		animation: none;
+		transition: none;
+	}
+
+	.avatar-flare::after {
+		transition: none;
+		background: radial-gradient(
+			circle at 50% 50%,
+			color-mix(in srgb, var(--glow-color, transparent) 10%, transparent) 0%,
+			transparent 70%
+		);
+	}
+}
+
+

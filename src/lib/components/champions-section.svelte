@@ -6,6 +6,7 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import X from "@lucide/svelte/icons/x";
   import AddChampion from "$lib/components/add-champion.svelte";
+  import FlareImage from "$lib/components/flare-image.svelte";
   import FromTo from "$lib/components/from-to.svelte";
   import Confirm from "$lib/components/confirm.svelte";
   import SectionHeader from "$lib/components/section-header.svelte";
@@ -94,7 +95,7 @@
     {@const folded = overlay.settings.length > CARD_ROWS && !unfolded.includes(id) && editingCard !== id}
     <div class="group rounded-lg border border-border px-3 pt-2.5 pb-2">
       <div class="flex h-8 items-center gap-2.5">
-        <img src={overlay.champion.icon} alt="" class="size-7 shrink-0 rounded-md" />
+        <FlareImage src={overlay.champion.icon} class="size-7 rounded-md" />
         {#if deleting === id}
           <p class="min-w-0 flex-1 truncate text-sm">Delete {overlay.champion.name}?</p>
           <Confirm action="Delete" disabled={busy} onconfirm={() => run(() => api.deleteOverlay(id))} oncancel={() => (deleting = null)} />

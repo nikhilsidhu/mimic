@@ -8,6 +8,7 @@
   import Settings from "@lucide/svelte/icons/settings";
   import Avatar from "$lib/components/avatar.svelte";
   import ChangesReview from "$lib/components/changes-review.svelte";
+  import FlareImage from "$lib/components/flare-image.svelte";
   import Confirm from "$lib/components/confirm.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -143,7 +144,7 @@
 
   {#if view?.activeOverlay}
     <div class="flex items-center gap-2 px-3 pb-2.5" title="{view.activeOverlay.name}'s own settings are on for this game">
-      <img src={view.activeOverlay.icon} alt="" class="size-5 rounded-sm" />
+      <FlareImage src={view.activeOverlay.icon} class="size-5 rounded-sm" />
       <span class="min-w-0 truncate text-foreground">{view.activeOverlay.name}</span>
       <Status>active</Status>
     </div>

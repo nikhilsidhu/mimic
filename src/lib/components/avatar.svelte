@@ -1,6 +1,7 @@
 <!-- The connected account's profile icon with its level, or a neutral placeholder. -->
 <script lang="ts">
   import UserRound from "@lucide/svelte/icons/user-round";
+  import FlareImage from "$lib/components/flare-image.svelte";
 
   let { account, size = "sm" }: { account: { icon: string; level: number } | null | undefined; size?: "sm" | "lg" } =
     $props();
@@ -15,10 +16,10 @@
 
 <div class="relative shrink-0 {size === 'lg' ? 'size-11' : 'size-8'}" title={account ? `Level ${account.level}` : undefined}>
   {#if account && !failed}
-    <img src={account.icon} alt="" class="size-full rounded-full ring-1 ring-border" onerror={() => (failed = true)} />
+    <FlareImage src={account.icon} class="size-full rounded-full ring-1 ring-border" onerror={() => (failed = true)} />
     {#if size === "lg"}
       <span
-        class="absolute -bottom-1 left-1/2 -translate-x-1/2 rounded-full border border-border bg-background px-1.5 text-[0.625rem] leading-4 text-muted-foreground"
+        class="absolute -bottom-1 left-1/2 z-10 -translate-x-1/2 rounded-full border border-border bg-background px-1.5 text-[0.625rem] leading-4 text-muted-foreground"
       >
         {account.level}
       </span>
