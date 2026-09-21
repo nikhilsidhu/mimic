@@ -148,7 +148,7 @@
         title={upToDate ? "Up to date" : "Check for updates"}
       >
         {#if upToDate}
-          <Check />
+          <Check class="text-live" />
         {:else}
           <RefreshCw class={updating ? "animate-spin" : ""} />
         {/if}
