@@ -24,7 +24,7 @@
   import Titlebar from "$lib/components/titlebar.svelte";
   import Toast from "$lib/components/toast.svelte";
   import * as api from "$lib/api";
-  import { settingLabel } from "$lib/binds";
+  import { isBind, settingLabel } from "$lib/binds";
 
   let view = $state<api.View | null>(null);
   /** The profile an action is running on. One action at a time. */
@@ -32,6 +32,8 @@
   let message = $state<{ text: string; failed: boolean } | null>(null);
   /** The row being renamed or asking to confirm a delete, if any. */
   let editing = $state<{ id: string; mode: "rename" | "delete" | "update"; name: string } | null>(null);
+  // The champion override whose removal is being confirmed, as `champion-id/setting`.
+  let removing = $state<string | null>(null);
   /** The profile whose contents are shown, by id. */
   let opened = $state<string | null>(null);
   let renameInput = $state<HTMLInputElement | null>(null);
@@ -255,55 +257,83 @@
       <section class="overflow-hidden rounded-lg border border-border">
         {#each view?.overlays ?? [] as overlay, index (overlay.champion.id)}
           {@const id = `champion-${overlay.champion.id}`}
-          <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
-            <img src={overlay.champion.icon} alt="" class="size-8 shrink-0 rounded-md" />
-            {#if editing?.id === id}
-              <p class="min-w-0 flex-1 truncate text-sm">
-                Delete <span class="font-medium">{overlay.champion.name}</span>'s settings?
-              </p>
-              <Button
-                variant="destructive"
-                size="sm"
-                disabled={busy !== null}
-                onclick={() => run(id, () => api.deleteOverlay(overlay.champion.id))}
-              >
-                Delete
-              </Button>
-              <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
-            {:else}
-              <div class="min-w-0 flex-1">
-                <p class="flex items-center gap-2 truncate text-sm font-medium">
+          <div class="group" class:border-t={index > 0}>
+            <div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
+              <img src={overlay.champion.icon} alt="" class="size-8 shrink-0 rounded-md" />
+              {#if editing?.id === id}
+                <p class="min-w-0 flex-1 truncate text-sm">
+                  Delete <span class="font-medium">{overlay.champion.name}</span>'s settings?
+                </p>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={busy !== null}
+                  onclick={() => run(id, () => api.deleteOverlay(overlay.champion.id))}
+                >
+                  Delete
+                </Button>
+                <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
+              {:else}
+                <p class="flex min-w-0 flex-1 items-center gap-2 truncate text-sm font-medium">
                   {overlay.champion.name}
                   {#if view?.activeOverlay?.id === overlay.champion.id}<Badge variant="secondary">on now</Badge>{/if}
                 </p>
-                <p class="flex flex-wrap items-center gap-x-3 gap-y-1 pt-0.5 text-xs text-muted-foreground">
-                  {#each overlay.settings as setting (api.muteId(setting))}
-                    <span class="inline-flex items-center gap-1.5">
-                      {settingLabel(setting.key)} <Bind value={setting.value} />
-                      <button
-                        class="rounded p-0.5 text-faint hover:text-foreground disabled:opacity-50"
-                        disabled={busy !== null}
-                        title="Remove this setting from {overlay.champion.name}"
-                        aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
-                        onclick={() => run(id, () => api.removeOverlaySetting(overlay.champion.id, setting))}
-                      >
-                        <X class="size-3" />
-                      </button>
+                <Button
+                  class="text-faint transition-colors group-hover:text-muted-foreground"
+                  variant="ghost"
+                  size="icon"
+                  onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
+                  aria-label="Delete"
+                  title="Delete"
+                >
+                  <Trash2 />
+                </Button>
+              {/if}
+            </div>
+            <!-- One override per line, names in one column and values in the next, so a
+                 champion's settings read like a small table. Indented to the name. -->
+            <ul class="pr-4 pb-3 pl-[3.75rem] text-xs">
+              {#each overlay.settings as setting (api.muteId(setting))}
+                {#if removing === `${id}/${api.muteId(setting)}`}
+                  <!-- The whole row asks, like deleting a profile or a champion does. -->
+                  <li class="flex min-h-8 items-center gap-2">
+                    <span class="min-w-0 flex-1 truncate text-sm">
+                      Remove <span class="font-medium">{settingLabel(setting.key)}</span>?
                     </span>
-                  {/each}
-                </p>
-              </div>
-              <Button
-                class="text-faint transition-colors group-hover:text-muted-foreground"
-                variant="ghost"
-                size="icon"
-                onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
-                aria-label="Delete"
-                title="Delete"
-              >
-                <Trash2 />
-              </Button>
-            {/if}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      disabled={busy !== null}
+                      onclick={() => {
+                        removing = null;
+                        run(id, () => api.removeOverlaySetting(overlay.champion.id, setting));
+                      }}
+                    >
+                      Remove
+                    </Button>
+                    <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
+                  </li>
+                {:else}
+                  <li class="grid min-h-8 grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] items-center gap-3">
+                    <span class="truncate text-muted-foreground" title="{setting.section} / {setting.key}">
+                      {settingLabel(setting.key)}
+                    </span>
+                    <span class="flex items-center">
+                      {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
+                    </span>
+                    <button
+                      class="flex h-5 w-7 items-center justify-center rounded text-faint hover:text-foreground disabled:opacity-50"
+                      disabled={busy !== null}
+                      title="Remove this setting from {overlay.champion.name}"
+                      aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
+                      onclick={() => (removing = `${id}/${api.muteId(setting)}`)}
+                    >
+                      <X class="size-3" />
+                    </button>
+                  </li>
+                {/if}
+              {/each}
+            </ul>
           </div>
         {:else}
           <p class="px-4 py-10 text-center text-sm text-muted-foreground">
