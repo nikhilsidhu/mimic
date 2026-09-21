@@ -2,9 +2,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import Trash2 from "@lucide/svelte/icons/trash-2";
-  import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
+  import Status from "$lib/components/status.svelte";
   import * as api from "$lib/api";
 
   let { onmessage }: { onmessage: (text: string, failed: boolean) => void } = $props();
@@ -60,7 +60,7 @@
         <div class="min-w-0 flex-1">
           <p class="flex items-center gap-2 truncate text-sm font-medium">
             {account.name}
-            {#if account.connected}<Badge variant="secondary">logged in</Badge>{/if}
+            {#if account.connected}<Status>logged in</Status>{/if}
           </p>
           <p class="text-xs text-muted-foreground">
             {account.profile ? `On ${account.profile}` : "Not on a profile"}

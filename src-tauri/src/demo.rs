@@ -48,7 +48,7 @@ pub fn drift() -> Drift {
         profile: Some("main".to_owned()),
         champion: Some(ChampionRef { id: AZIR, name: "Azir".to_owned() }),
         changes: vec![
-            bind("evtPlayerAttackMoveClick", None, "[Button 4]"),
+            bind("evtPlayerAttackMove", Some("[a]"), "[x]"),
             bind("evtUseVisionItem", Some("[4]"), "[c]"),
             change("Game.cfg", "Performance", "ShowFPSAndLatency", Some("0"), "1"),
         ],
@@ -88,10 +88,10 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
     // abilities go back to normal cast, shields get an easier self-cast, and the ward-hop gets a
     // key of its own.
     for (champion, keys) in [
-        (AZIR, vec![("evtPlayerAttackMoveClick", "[Button 4]"), ("evtSmartCastWithIndicatorSpell2", "[w]")]),
+        (AZIR, vec![("evtPlayerAttackMoveClick", "[Button 4]"), ("evtSmartCastWithIndicatorSpell2", "[w]"), ("evtSmartCastSpell2", "[<Unbound>]")]),
         (VIKTOR, vec![("evtCastSpell3", "[e]"), ("evtSmartCastSpell3", "[<Unbound>]")]),
-        (ORIANNA, vec![("evtSelfCastSpell3", "[Shift][e]"), ("evtChampionOnly", "[`]")]),
-        (LEE_SIN, vec![("evtUseVisionItem", "[c]"), ("evtSmartPlusSelfCastSpell2", "[Shift][w]")]),
+        (ORIANNA, vec![("evtSelfCastSpell3", "[Button 5]"), ("evtChampionOnly", "[`]")]),
+        (LEE_SIN, vec![("evtUseVisionItem", "[c]"), ("evtSmartPlusSelfCastSpell2", "[Button 4]")]),
     ] {
         let mut settings = SettingsMap::default();
         for (key, value) in keys {
@@ -123,7 +123,7 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
     })?;
 
     let history = [
-        (50, "applied 'main'", vec![bind("evtCastSpell1", Some("[a]"), "[q]"), bind("evtCastAvatarSpell1", Some("[f]"), "[d]")]),
+        (50, "applied 'main'", vec![bind("evtSmartCastSpell1", Some("[a]"), "[q]"), bind("evtCastAvatarSpell1", Some("[f]"), "[d]")]),
         (26, "Saved 1 change to 'main'", vec![bind("evtCameraLockToggle", Some("[y]"), "[Space]")]),
         (2, "Saved 2 changes for Azir only", vec![bind("evtPlayerAttackMoveClick", None, "[Button 4]"), bind("evtSmartCastWithIndicatorSpell2", None, "[w]")]),
     ];
@@ -139,13 +139,28 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
 /// A small but believable set of settings. The count shown is of these.
 fn base_settings() -> SettingsMap {
     let mut settings = SettingsMap::default();
+    // Quick cast on the spell keys, normal cast on Shift and self cast on Alt, as many
+    // players have it.
     let binds = [
-        ("evtCastSpell1", "[q]"),
-        ("evtCastSpell2", "[w]"),
-        ("evtCastSpell3", "[e]"),
-        ("evtCastSpell4", "[r]"),
+        ("evtSmartCastSpell1", "[q]"),
+        ("evtSmartCastSpell2", "[w]"),
+        ("evtSmartCastSpell3", "[e]"),
+        ("evtSmartCastSpell4", "[r]"),
+        ("evtCastSpell1", "[Shift][q]"),
+        ("evtCastSpell2", "[Shift][w]"),
+        ("evtCastSpell3", "[Shift][e]"),
+        ("evtCastSpell4", "[Shift][r]"),
+        ("evtSelfCastSpell1", "[Alt][q]"),
+        ("evtSelfCastSpell2", "[Alt][w]"),
+        ("evtSelfCastSpell3", "[Alt][e]"),
+        ("evtSelfCastSpell4", "[Alt][r]"),
+        ("evtSmartCastWithIndicatorSpell2", "[<Unbound>]"),
+        ("evtSmartPlusSelfCastSpell2", "[<Unbound>]"),
         ("evtCastAvatarSpell1", "[d]"),
         ("evtCastAvatarSpell2", "[f]"),
+        ("evtUseVisionItem", "[4]"),
+        ("evtPlayerAttackMove", "[a]"),
+        ("evtPlayerAttackMoveClick", "[<Unbound>]"),
         ("evtCameraLockToggle", "[Space]"),
         ("evtChampionOnly", "[<Unbound>]"),
     ];
@@ -153,7 +168,7 @@ fn base_settings() -> SettingsMap {
         settings.set("Input.ini", "GameEvents", key, value);
     }
     // Padded out to the size of a real profile, which holds a few hundred settings.
-    for index in 0..356 {
+    for index in 0..340 {
         settings.set("Game.cfg", "HUD", &format!("Demo{index}"), "1");
     }
     settings.set("Game.cfg", "HUD", "MinimapScale", "1.2");

@@ -60,29 +60,31 @@ const NAMES: Record<string, string> = {
 
 /** How a spell or item is cast, by the prefix of its internal name. Longest first. */
 const CAST_MODES: [string, string][] = [
-  ["SmartPlusSelfCastWithIndicator", "quick + self cast, indicator"],
-  ["SmartPlusSelfCast", "quick + self cast"],
-  ["SmartCastWithIndicator", "quick cast, indicator"],
-  ["SmartCast", "quick cast"],
-  ["SelfCast", "self cast"],
-  ["NormalCast", "normal cast"],
-  ["Cast", ""],
-  ["Use", ""],
+  ["SmartPlusSelfCastWithIndicator", "Quick + self cast {}, indicator"],
+  ["SmartPlusSelfCast", "Quick + self cast {}"],
+  ["SmartCastWithIndicator", "Quick cast {}, indicator"],
+  ["SmartCast", "Quick cast {}"],
+  ["SelfCast", "Self cast {}"],
+  ["NormalCast", "Normal cast {}"],
+  ["Cast", "Cast {}"],
+  ["Use", "{}"],
 ];
 
 const SPELL_KEYS = ["Q", "W", "E", "R"];
 
-/** What is cast: `Spell4` is "Spell 4 (R)", `AvatarSpell1` a summoner spell. */
+/** What is cast, the way players say it: `Spell4` is "R", `AvatarSpell1` a summoner spell. */
 function castTarget(name: string): string | null {
   const [, kind, digit] = name.match(/^(Spell|AvatarSpell|Item)(\d)$/) ?? [];
   const number = Number(digit);
-  if (kind === "Spell") return `Spell ${number} (${SPELL_KEYS[number - 1] ?? "?"})`;
-  if (kind === "AvatarSpell") return `Summoner spell ${number}`;
-  if (kind === "Item") return `Item ${number}`;
-  if (name === "VisionItem") return "Trinket";
-  if (name === "RoleBound") return "Role item";
+  if (kind === "Spell") return SPELL_KEYS[number - 1] ?? `spell ${number}`;
+  if (kind === "AvatarSpell") return `summoner spell ${number}`;
+  if (kind === "Item") return `item ${number}`;
+  if (name === "VisionItem") return "trinket";
+  if (name === "RoleBound") return "role item";
   return null;
 }
+
+const capitalised = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /** `ShowFPSAndLatency` becomes "Show FPS and latency". */
 function words(name: string): string {
@@ -92,7 +94,7 @@ function words(name: string): string {
   return sentence.charAt(0).toUpperCase() + sentence.slice(1);
 }
 
-/** A setting's name as a person would say it: `evtSelfCastSpell2` is "Spell 2 (W), self cast". */
+/** A setting's name as a person would say it: `evtSelfCastSpell2` is "Self cast W". */
 export function settingLabel(key: string): string {
   const name = key.replace(/^evn?t/, "");
   if (NAMES[name]) return NAMES[name];
@@ -102,7 +104,7 @@ export function settingLabel(key: string): string {
   const base = quick ? name.slice(0, -"smart".length) : name;
   for (const [prefix, mode] of CAST_MODES) {
     const target = base.startsWith(prefix) ? castTarget(base.slice(prefix.length)) : null;
-    if (target) return [target, quick ? "quick cast on" : mode].filter(Boolean).join(", ");
+    if (target) return capitalised(quick ? `Quick cast for ${target}` : mode.replace("{}", target));
   }
 
   const level = name.match(/^LevelSpell(\d)$/);

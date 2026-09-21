@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import Check from "@lucide/svelte/icons/check";
+  import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CopyPlus from "@lucide/svelte/icons/copy-plus";
   import Download from "@lucide/svelte/icons/download";
@@ -10,7 +10,6 @@
   import Trash2 from "@lucide/svelte/icons/trash-2";
   import Upload from "@lucide/svelte/icons/upload";
   import X from "@lucide/svelte/icons/x";
-  import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { ScrollArea } from "$lib/components/ui/scroll-area";
@@ -21,10 +20,12 @@
   import ProfileDetails from "$lib/components/profile-details.svelte";
   import SettingsSection from "$lib/components/settings-section.svelte";
   import SnapshotsSection from "$lib/components/snapshots-section.svelte";
+  import Status from "$lib/components/status.svelte";
   import Titlebar from "$lib/components/titlebar.svelte";
   import Toast from "$lib/components/toast.svelte";
   import * as api from "$lib/api";
   import { isBind, settingLabel } from "$lib/binds";
+  import { DOT_LIVE, DOT_OFF, WAITING } from "$lib/tones";
 
   let view = $state<api.View | null>(null);
   /** The profile an action is running on. One action at a time. */
@@ -44,7 +45,17 @@
 
   onMount(() => {
     refresh();
-    return api.onViewChanged(refresh);
+    const stopView = api.onViewChanged(refresh);
+    // The tray panel sends people here to save settings for a champion.
+    const stopAdd = api.onAddChampion(async () => {
+      adding = true;
+      await tick();
+      document.getElementById("champions")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => {
+      stopView();
+      stopAdd();
+    };
   });
 
   async function run(id: string, action: () => Promise<string>) {
@@ -93,14 +104,18 @@
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
           <h1 class="truncate text-lg font-semibold tracking-tight">{view?.account?.name ?? "mimic"}</h1>
-          <p class="truncate text-sm text-muted-foreground">
-            {#if !view}
-              Starting…
-            {:else if view.connected}
-              {view.activity ?? "Connected"}
-            {:else}
-              {view.status}
-            {/if}
+          <p class="flex min-w-0 items-center gap-2 text-sm text-muted-foreground">
+            <span class="size-1.5 shrink-0 rounded-full {view?.connected ? DOT_LIVE : DOT_OFF}"></span>
+            <span class="truncate">
+              {#if !view}
+                Starting…
+              {:else if view.connected}
+                {view.activity ?? "Connected"}
+              {:else}
+                {view.status}
+              {/if}
+            </span>
+
           </p>
         </div>
       </header>
@@ -123,9 +138,6 @@
               onclick={() => (opened = opened === profile.id ? null : profile.id)}
             >
               <ChevronRight class="size-3.5 transition-transform {opened === profile.id ? 'rotate-90' : ''}" />
-              <span class="flex size-4 items-center justify-center text-foreground">
-                {#if profile.active}<Check class="size-4" />{/if}
-              </span>
             </button>
 
             {#if editing?.id === profile.id && editing.mode === "rename"}
@@ -162,10 +174,15 @@
               <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
             {:else}
               <div class="min-w-0 flex-1">
-                <p class="truncate text-sm font-medium">{profile.name}</p>
-                <p class="text-xs text-faint">
-                  {view?.pending === profile.name ? "Applies at next login" : `${profile.settings} settings`}
+                <p class="flex items-center gap-2 truncate text-sm font-medium">
+                  {profile.name}
+                  {#if profile.active}<Status>in use</Status>{/if}
                 </p>
+                {#if view?.pending === profile.name}
+                  <p class="text-xs {WAITING}">Applies at next login</p>
+                {:else}
+                  <p class="text-xs text-faint">{profile.settings} settings</p>
+                {/if}
               </div>
               <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">
                 <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
@@ -231,7 +248,7 @@
 
       <AccountsSection onmessage={(text, failed) => (message = { text, failed })} />
 
-      <header class="flex items-end justify-between gap-4 pt-2">
+      <header id="champions" class="flex scroll-mt-4 items-end justify-between gap-4 pt-2">
         <div>
           <h2 class="text-lg font-semibold tracking-tight">Champions</h2>
           <p class="text-sm text-muted-foreground">
@@ -254,16 +271,16 @@
         />
       {/if}
 
-      <section class="overflow-hidden rounded-lg border border-border">
-        {#each view?.overlays ?? [] as overlay, index (overlay.champion.id)}
+      <!-- A card per champion, two to a row: narrow lists keep each value next to its name
+           and are read top to bottom. -->
+      <section class="grid gap-3 min-[720px]:grid-cols-2">
+        {#each view?.overlays ?? [] as overlay (overlay.champion.id)}
           {@const id = `champion-${overlay.champion.id}`}
-          <div class="group" class:border-t={index > 0}>
-            <div class="flex min-h-14 items-center gap-3 px-4 py-2.5">
-              <img src={overlay.champion.icon} alt="" class="size-8 shrink-0 rounded-md" />
+          <div class="group rounded-lg border border-border px-3 pt-2.5 pb-2">
+            <div class="flex h-8 items-center gap-2.5">
+              <img src={overlay.champion.icon} alt="" class="size-7 shrink-0 rounded-md" />
               {#if editing?.id === id}
-                <p class="min-w-0 flex-1 truncate text-sm">
-                  Delete <span class="font-medium">{overlay.champion.name}</span>'s settings?
-                </p>
+                <p class="min-w-0 flex-1 truncate text-sm">Delete {overlay.champion.name}?</p>
                 <Button
                   variant="destructive"
                   size="sm"
@@ -274,36 +291,38 @@
                 </Button>
                 <Button variant="ghost" size="sm" onclick={() => (editing = null)}>Cancel</Button>
               {:else}
-                <p class="flex min-w-0 flex-1 items-center gap-2 truncate text-sm font-medium">
-                  {overlay.champion.name}
-                  {#if view?.activeOverlay?.id === overlay.champion.id}<Badge variant="secondary">on now</Badge>{/if}
-                </p>
+                <p class="min-w-0 truncate text-sm font-medium">{overlay.champion.name}</p>
+                {#if view?.activeOverlay?.id === overlay.champion.id}<Status>on now</Status>{/if}
+                <span class="flex-1"></span>
                 <Button
-                  class="text-faint transition-colors group-hover:text-muted-foreground"
+                  class="-mr-1 text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                   variant="ghost"
-                  size="icon"
+                  size="icon-sm"
                   onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
-                  aria-label="Delete"
-                  title="Delete"
+                  aria-label="Delete {overlay.champion.name}'s settings"
+                  title="Delete {overlay.champion.name}'s settings"
                 >
                   <Trash2 />
                 </Button>
               {/if}
             </div>
-            <!-- One override per line, names in one column and values in the next, so a
-                 champion's settings read like a small table. Indented to the name. -->
-            <ul class="pr-4 pb-3 pl-[3.75rem] text-xs">
+            <ul class="pt-1 text-xs">
               {#each overlay.settings as setting (api.muteId(setting))}
                 <!-- Asking before a removal changes only the last cell, so the text stays put. -->
-                <li class="grid min-h-8 grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] items-center gap-3">
-                  <span class="truncate text-muted-foreground" title="{setting.section} / {setting.key}">
+                <li class="group/row grid min-h-7 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                  <span class="leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
                     {settingLabel(setting.key)}
                   </span>
-                  <span class="flex items-center">
+                  <!-- What the champion changes it from, when that is known, and to. -->
+                  <span class="flex items-center justify-end gap-1.5">
+                    {#if setting.from !== null}
+                      {#if isBind(setting)}<Bind value={setting.from} />{:else}<span>{setting.from}</span>{/if}
+                      <ArrowRight class="size-3 shrink-0 text-faint" />
+                    {/if}
                     {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
                   </span>
                   {#if removing === `${id}/${api.muteId(setting)}`}
-                    <span class="flex items-center gap-1.5">
+                    <span class="flex items-center gap-1">
                       <Button
                         variant="destructive"
                         size="sm"
@@ -319,7 +338,7 @@
                     </span>
                   {:else}
                     <button
-                      class="flex h-5 w-7 items-center justify-center rounded text-faint hover:text-foreground disabled:opacity-50"
+                      class="-mr-1 flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity group-hover/row:opacity-100 hover:text-foreground focus-visible:opacity-100"
                       disabled={busy !== null}
                       title="Remove this setting from {overlay.champion.name}"
                       aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
@@ -333,7 +352,7 @@
             </ul>
           </div>
         {:else}
-          <p class="px-4 py-10 text-center text-sm text-muted-foreground">
+          <p class="col-span-full rounded-lg border border-border px-4 py-10 text-center text-sm text-muted-foreground">
             None yet.
           </p>
         {/each}

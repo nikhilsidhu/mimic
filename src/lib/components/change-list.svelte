@@ -26,7 +26,7 @@
       {#if onmute}
         <button
           class="shrink-0 rounded p-0.5 text-faint hover:text-foreground"
-          title="Don't ask about this setting again. Changes to it are kept."
+          title="Never ask about this setting again"
           aria-label="Don't ask about {settingLabel(change.key)} again"
           onclick={() => onmute(change)}
         >

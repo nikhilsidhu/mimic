@@ -183,7 +183,7 @@
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">
       <p class="text-sm font-medium">Muted settings</p>
-      <p class="text-xs text-muted-foreground">Changes to these are kept without asking.</p>
+      <p class="text-xs text-muted-foreground">mimic never asks about changes to these.</p>
       <ul class="mt-2 flex flex-wrap gap-1.5">
         {#each muted as id (id)}
           <li class="flex items-center gap-1 rounded-md border border-border py-0.5 pr-1 pl-2 text-xs" title={id}>
