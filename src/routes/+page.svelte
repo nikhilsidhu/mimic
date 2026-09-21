@@ -112,7 +112,7 @@
   <Titlebar />
 
   <ScrollArea class="min-h-0 flex-1">
-    <main class="mx-auto flex max-w-2xl flex-col gap-6 px-8 pt-6 pb-10">
+    <main class="mx-auto flex max-w-4xl flex-col gap-6 px-6 pt-6 pb-10">
       <header class="flex items-center gap-4">
         <Avatar account={view?.account} size="lg" />
         <div class="min-w-0 flex-1">
@@ -327,8 +327,9 @@
             </div>
             <ul class="pt-1 text-xs">
               {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
-                <!-- Asking before a removal changes only the last cell, so the text stays put. -->
-                <li class="group/row grid min-h-7 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                <!-- Remove, and the question it leads to, lie over the right end of the row, so
+                     that they take no room of their own and nothing moves when they appear. -->
+                <li class="group/row relative grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                   <span class="leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
                     {settingLabel(setting.key)}
                   </span>
@@ -341,7 +342,7 @@
                     {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
                   </span>
                   {#if removing === `${id}/${api.muteId(setting)}`}
-                    <span class="flex items-center gap-1">
+                    <span class="absolute inset-y-0 right-0 flex items-center gap-1 bg-linear-to-l from-background from-85% to-transparent pl-8">
                       <Button
                         variant="destructive"
                         size="sm"
@@ -356,15 +357,19 @@
                       <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
                     </span>
                   {:else}
-                    <button
-                      class="-mr-1 flex size-6 items-center justify-center rounded text-faint opacity-0 transition-opacity group-hover/row:opacity-100 hover:text-foreground focus-visible:opacity-100"
-                      disabled={busy !== null}
-                      title="Remove this setting from {overlay.champion.name}"
-                      aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
-                      onclick={() => (removing = `${id}/${api.muteId(setting)}`)}
+                    <span
+                      class="absolute inset-y-0 right-0 flex items-center bg-linear-to-l from-background from-60% to-transparent pl-6 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100"
                     >
-                      <X class="size-3" />
-                    </button>
+                      <button
+                        class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        disabled={busy !== null}
+                        title="Remove this setting from {overlay.champion.name}"
+                        aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
+                        onclick={() => (removing = `${id}/${api.muteId(setting)}`)}
+                      >
+                        <X class="size-3.5" />
+                      </button>
+                    </span>
                   {/if}
                 </li>
               {/each}

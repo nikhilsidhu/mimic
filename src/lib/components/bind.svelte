@@ -16,7 +16,7 @@
       {#if index > 0}<span class="text-faint">/</span>{/if}
       <span class="inline-flex items-center gap-0.5">
         {#each chord as key, position (position)}
-          <Kbd class="border border-border bg-muted px-1.5 text-foreground">{key}</Kbd>
+          <Kbd class="h-[1.375rem] min-w-[1.375rem] rounded-sm border border-foreground/25 bg-foreground/10 px-1.5 text-xs text-foreground">{key}</Kbd>
         {/each}
       </span>
     {/each}
