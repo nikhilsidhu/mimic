@@ -49,7 +49,7 @@
             {account.name}
             {#if account.connected}<Status>logged in</Status>{/if}
           </p>
-          <p class="text-xs text-muted-foreground">
+          <p class="mt-0.5 text-xs text-muted-foreground">
             {account.profile ? `On ${account.profile}` : "Not on a profile"}
           </p>
         </div>

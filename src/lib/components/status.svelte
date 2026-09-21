@@ -8,7 +8,7 @@
 </script>
 
 <span
-  class="inline-flex h-[1.125rem] shrink-0 items-center gap-1.5 rounded-full border border-border px-2 text-xs leading-none font-normal text-muted-foreground"
+  class="inline-flex h-4 shrink-0 items-center gap-1 rounded-full border border-border px-1.5 text-[0.6875rem] leading-none font-normal text-muted-foreground"
 >
   <span class="size-1.5 rounded-full {DOT_LIVE}"></span>
   {@render children()}

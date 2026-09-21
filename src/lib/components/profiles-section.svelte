@@ -126,10 +126,10 @@
             {#if profile.active}<Status>active</Status>{/if}
           </span>
           {#if view?.pending === profile.name}
-            <span class="block text-xs {WAITING}">Applies at next login</span>
+            <span class="mt-0.5 block text-xs {WAITING}">Applies at next login</span>
           {:else}
             <!-- How it compares with the logged-in account, so that it need not be opened to find out. -->
-            <span class="block text-xs text-faint">
+            <span class="mt-0.5 block text-xs text-faint">
               {profile.settings} settings{#if profile.differs === 0}{" · "}in sync{:else if profile.differs}{" · "}<span
                   class="text-muted-foreground"
                   title="Applying it would change {profile.differs} settings on this account">{profile.differs} differ</span

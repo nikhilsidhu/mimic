@@ -10,7 +10,7 @@
   const chords = $derived(parseBind(value));
   // Keys are set in the system font: in the monospace one a W is squeezed into a single cell
   // and is a blob at this size.
-  const KEY = "h-[1.375rem] min-w-[1.375rem] rounded-sm px-1.5 font-[system-ui] text-xs font-semibold";
+  const KEY = "h-[1.375rem] min-w-[1.375rem] rounded-sm px-1.5 font-[family-name:Segoe_UI,system-ui,sans-serif] text-xs font-semibold";
 </script>
 
 {#if chords.length === 0}
