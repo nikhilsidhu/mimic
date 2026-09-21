@@ -120,6 +120,15 @@ impl Store {
         Ok(())
     }
 
+    /// Takes a snapshot back, as when the change it was taken for never happened.
+    pub fn delete_snapshot(&self, snapshot: &Snapshot) -> Result<()> {
+        let path = self.root.join("snapshots").join(format!("{:020}.json", snapshot.taken.unix_timestamp_nanos()));
+        if path.exists() {
+            remove(&path)?;
+        }
+        Ok(())
+    }
+
     /// Every snapshot, newest first.
     pub fn list_snapshots(&self) -> Result<Vec<Snapshot>> {
         let mut snapshots: Vec<Snapshot> = read_dir_json(&self.root.join("snapshots"))?;
@@ -289,5 +298,22 @@ mod tests {
         }
         let reasons: Vec<String> = store.list_snapshots().unwrap().into_iter().map(|s| s.reason).collect();
         assert_eq!(reasons, ["apply 4", "apply 3", "apply 2"]);
+    }
+
+    #[test]
+    fn a_snapshot_can_be_taken_back() {
+        let (_dir, store) = store();
+        let kept = Snapshot::new("applied main", None, settings("[q]"));
+        let mut failed = Snapshot::new("an apply that failed", None, settings("[q]"));
+        failed.taken += time::Duration::seconds(1);
+        store.save_snapshot(&kept, 20).unwrap();
+        store.save_snapshot(&failed, 20).unwrap();
+
+        store.delete_snapshot(&failed).unwrap();
+        // Taking back one that is already gone is not an error.
+        store.delete_snapshot(&failed).unwrap();
+
+        let reasons: Vec<String> = store.list_snapshots().unwrap().into_iter().map(|s| s.reason).collect();
+        assert_eq!(reasons, ["applied main"]);
     }
 }

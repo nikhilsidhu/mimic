@@ -3,13 +3,14 @@
 use std::time::Duration;
 
 use super::drift::keep_muted;
+use super::phase;
 use super::{Connection, Engine, Status};
 use crate::lcu::{LcuError, Summoner};
 use crate::profiles::{Account, Profile, ProfileError, Snapshot};
 use crate::settings::{diff, is_volatile, merge, overlay_between, Change, PersistedSettings, SettingsMap};
 
 /// Snapshots kept before the oldest are deleted.
-pub(super) const KEEP_SNAPSHOTS: usize = 20;
+pub(crate) const KEEP_SNAPSHOTS: usize = 20;
 
 #[derive(Debug, thiserror::Error)]
 pub enum ActionError {
@@ -548,10 +549,18 @@ impl Engine {
 
         // The client can veto a value (a key it wants for something else, say), so what
         // actually landed is read back, and whatever is still off gets one more try.
-        let mut after = before;
+        let mut after = before.clone();
         let mut remaining = changes.clone();
         for _ in 0..2 {
-            connection.client.apply_settings(&remaining).await?;
+            if let Err(err) = connection.client.apply_settings(&remaining).await {
+                // A write that failed and changed nothing never happened: its snapshot would be
+                // an entry in the change log for nothing, offering to undo nothing.
+                let untouched = read_settings(&connection).is_ok_and(|now| now == before);
+                if let (true, Some(record)) = (untouched, &record) {
+                    self.inner.store.delete_snapshot(record)?;
+                }
+                return Err(err.into());
+            }
             tokio::time::sleep(SETTLE).await;
             after = read_settings(&connection)?;
             remaining = overlay_between(&after, target);
@@ -653,7 +662,7 @@ pub fn snapshot_id(snapshot: &Snapshot) -> String {
 
 /// Phases in which the game is starting or running.
 pub(super) fn in_game(phase: &str) -> bool {
-    matches!(phase, "ChampSelect" | "GameStart" | "InProgress" | "Reconnect")
+    matches!(phase, phase::CHAMP_SELECT | phase::GAME_START | phase::IN_PROGRESS | phase::RECONNECT)
 }
 
 /// What differs between the baseline and what is on the account now, leaving out the
