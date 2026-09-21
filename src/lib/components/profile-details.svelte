@@ -51,7 +51,7 @@
   });
   const others = $derived(groups.reduce((total, [, rows]) => total + rows.length, 0));
 
-  const heading = "text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase";
+  const heading = "eyebrow";
 </script>
 
 <div class="flex flex-col gap-3 border-t border-border px-4 pt-3 pb-4">

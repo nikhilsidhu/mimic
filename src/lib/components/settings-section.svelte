@@ -83,7 +83,7 @@
 
 <SectionHeader title="Settings" />
 
-<section class="overflow-hidden rounded-lg border border-border">
+<section class="list-box">
   <SettingRow title="Start with Windows" label>
     {#snippet description()}
       <p class="text-xs text-muted-foreground">Starts in the tray, without opening a window.</p>
@@ -102,7 +102,7 @@
     <div class="flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
       {#each THEMES as option (option)}
         <button
-          class="rounded px-2.5 py-1 text-xs capitalize text-muted-foreground aria-checked:bg-accent aria-checked:text-accent-foreground"
+          class="rounded px-2.5 py-1 text-xs capitalize text-muted-foreground aria-checked:bg-live aria-checked:font-medium aria-checked:text-background"
           role="radio"
           aria-checked={theme === option}
           onclick={() => {

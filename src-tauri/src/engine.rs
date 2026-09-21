@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, watch};
 use tokio::time::sleep;
 
 pub use actions::{snapshot_id, ActionError, Announcement, Applied, Outcome};
+pub(crate) use actions::KEEP_SNAPSHOTS;
 pub use drift::{mute_id, ChampionRef, Drift, DriftChoice};
 pub use overlays::OverlaySource;
 
@@ -22,13 +23,31 @@ use crate::lcu::{self, LcuClient, Lockfile, Summoner};
 use crate::platform::LeagueInstall;
 use crate::profiles::Store;
 
-/// Phases that follow a game. `TerminatedInError` is how Practice Tool games end.
-const GAME_OVER: [&str; 5] = ["PreEndOfGame", "EndOfGame", "TerminatedInError", "Lobby", "None"];
+/// The client's gameflow phases, as it names them, so that each is spelt in one place.
+pub(crate) mod phase {
+    pub const NONE: &str = "None";
+    pub const LOBBY: &str = "Lobby";
+    pub const MATCHMAKING: &str = "Matchmaking";
+    pub const READY_CHECK: &str = "ReadyCheck";
+    pub const CHAMP_SELECT: &str = "ChampSelect";
+    pub const GAME_START: &str = "GameStart";
+    pub const IN_PROGRESS: &str = "InProgress";
+    pub const RECONNECT: &str = "Reconnect";
+    pub const WAITING_FOR_STATS: &str = "WaitingForStats";
+    pub const PRE_END_OF_GAME: &str = "PreEndOfGame";
+    pub const END_OF_GAME: &str = "EndOfGame";
+    /// How Practice Tool games end.
+    pub const TERMINATED_IN_ERROR: &str = "TerminatedInError";
+}
+
+/// Phases that follow a game.
+const GAME_OVER: [&str; 5] =
+    [phase::PRE_END_OF_GAME, phase::END_OF_GAME, phase::TERMINATED_IN_ERROR, phase::LOBBY, phase::NONE];
 
 /// Phases that lead up to a game, and the ones the client idles in. Going from the first
 /// to the second means the game did not happen.
-const BEFORE_GAME: [&str; 3] = ["Matchmaking", "ReadyCheck", "ChampSelect"];
-const IDLE: [&str; 2] = ["Lobby", "None"];
+const BEFORE_GAME: [&str; 3] = [phase::MATCHMAKING, phase::READY_CHECK, phase::CHAMP_SELECT];
+const IDLE: [&str; 2] = [phase::LOBBY, phase::NONE];
 
 /// What the engine currently knows, for the tray and the UI.
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -77,17 +96,17 @@ impl Status {
     pub fn activity(&self) -> Option<String> {
         let Status::Connected { phase, queue, .. } = self else { return None };
         let doing = match phase.as_str() {
-            "Lobby" => "In lobby",
-            "Matchmaking" => "In queue",
-            "ReadyCheck" => "Match found",
-            "ChampSelect" => "Champ select",
-            "GameStart" | "InProgress" => "In game",
-            "Reconnect" => "Reconnecting",
-            "WaitingForStats" | "PreEndOfGame" | "EndOfGame" => "Game over",
+            phase::LOBBY => "In lobby",
+            phase::MATCHMAKING => "In queue",
+            phase::READY_CHECK => "Match found",
+            phase::CHAMP_SELECT => "Champ select",
+            phase::GAME_START | phase::IN_PROGRESS => "In game",
+            phase::RECONNECT => "Reconnecting",
+            phase::WAITING_FOR_STATS | phase::PRE_END_OF_GAME | phase::END_OF_GAME => "Game over",
             _ => return None,
         };
         Some(match queue {
-            Some(queue) if phase != "Lobby" => format!("{queue} \u{b7} {doing}"),
+            Some(queue) if phase != phase::LOBBY => format!("{queue} \u{b7} {doing}"),
             _ => doing.to_owned(),
         })
     }
@@ -321,7 +340,7 @@ async fn follow(
     tokio::spawn(refresh_assets(engine.clone(), client.clone(), account.profile_icon_id));
 
     // Whether a game has been running since the last check for changed settings.
-    let mut played = phase == "InProgress";
+    let mut played = phase == phase::IN_PROGRESS;
     // The local player's pick as last seen, so that only changes are acted on.
     let mut pick: Option<u32> = None;
     while let Some(event) = events.next().await {
@@ -331,7 +350,7 @@ async fn follow(
                 if let Some(new) = event.data.as_str() {
                     tracing::debug!(from = %phase, to = %new, "phase changed");
                     let before = std::mem::replace(&mut phase, new.to_owned());
-                    if phase == "InProgress" {
+                    if phase == phase::IN_PROGRESS {
                         played = true;
                     } else if played && GAME_OVER.contains(&phase.as_str()) {
                         // The game writes its settings as it exits. Once it is over, see

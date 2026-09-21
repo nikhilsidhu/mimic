@@ -39,7 +39,7 @@ pub fn account() -> Summoner {
     }
 }
 
-pub const PHASE: &str = "ChampSelect";
+pub const PHASE: &str = crate::engine::phase::CHAMP_SELECT;
 pub const QUEUE: &str = "Ranked Solo/Duo";
 
 /// What the prompt about changed settings shows.
@@ -131,7 +131,7 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
         let mut snapshot = Snapshot::new(reason, Some(PUUID), main.clone());
         snapshot.taken = now - Duration::hours(hours_ago);
         snapshot.changes = changes;
-        store.save_snapshot(&snapshot, 20)?;
+        store.save_snapshot(&snapshot, crate::engine::KEEP_SNAPSHOTS)?;
     }
     Ok(())
 }

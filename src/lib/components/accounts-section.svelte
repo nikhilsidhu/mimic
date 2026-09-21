@@ -35,9 +35,9 @@
   }
 </script>
 
-<section class="overflow-hidden rounded-lg border border-border">
+<section class="list-box">
   {#each accounts as account, index (account.puuid)}
-    <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
+    <div class="group list-row" class:border-t={index > 0}>
       {#if forgetting === account.puuid}
         <p class="min-w-0 flex-1 truncate text-sm">
           Forget <span class="font-medium">{account.name}</span>?

@@ -183,7 +183,7 @@
   {#if saving === "menu"}
     <!-- Where this account's current settings go. It takes the list's place while it is open: the
          panel has no room for both, and the bar below must stay in view. -->
-    <p class="px-3 pt-2.5 pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">Save settings to</p>
+    <p class="px-3 pt-2.5 pb-1 eyebrow">Save settings to</p>
     <div class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-1.5 pb-1.5">
       {#if activeProfile}
         <button class={saveRow} disabled={busy !== null} onclick={() => saveTo(() => api.updateProfile(activeProfile.id))}>
@@ -201,7 +201,7 @@
       </button>
     </div>
   {:else}
-  <p class="px-3 pt-2.5 pb-1 text-[0.625rem] font-medium tracking-wide text-muted-foreground uppercase">Profiles</p>
+  <p class="px-3 pt-2.5 pb-1 eyebrow">Profiles</p>
   <ScrollArea class="min-h-0 flex-1">
     <div class="flex flex-col gap-0.5 px-1.5 pb-1.5">
       {#each view?.profiles ?? [] as profile (profile.id)}

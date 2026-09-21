@@ -63,9 +63,9 @@
 </div>
 
 {#if expanded}
-<section class="overflow-hidden rounded-lg border border-border">
+<section class="list-box">
   {#each snapshots as snapshot, index (snapshot.id)}
-    <div class="flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
+    <div class="list-row" class:border-t={index > 0}>
       <button
         class="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-default"
         disabled={snapshot.changes.length === 0}

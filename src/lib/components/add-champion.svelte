@@ -59,7 +59,7 @@
   const count = (settings: number) => (settings === 1 ? "1 setting" : `${settings} settings`);
 </script>
 
-<section class="overflow-hidden rounded-lg border border-border">
+<section class="list-box">
   {#if !champion}
     <div class="flex items-center gap-2 border-b border-border p-2">
       <Input

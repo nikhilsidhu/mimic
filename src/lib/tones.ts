@@ -1,11 +1,13 @@
-// Colour by meaning, as soft tints so that a status reads at a glance without shouting.
-// Red is left to real problems: errors and destructive buttons.
-
+// Colour by meaning. The colours themselves are tokens in `app.css`, `--live` and `--waiting`,
+// so that each is changed in one place; red is left to real problems.
+//
 // Text keeps its normal colour and a dot carries the meaning: tinted text at badge size was
 // hard to read.
-/** Waiting for something: a profile queued for the next login. */
-export const WAITING = "text-amber-700 dark:text-amber-400";
+
 /** Live right now: a connected account, a champion's settings that are on. */
 export const DOT_LIVE = "bg-live";
+/** Awaiting something: a profile that was edited since it was applied. */
+export const DOT_WAITING = "bg-waiting";
 export const DOT_OFF = "bg-muted-foreground/40";
-export const DOT_WAITING = "bg-amber-500";
+/** Text that says something is waiting, such as a profile queued for the next login. */
+export const WAITING = "text-waiting";

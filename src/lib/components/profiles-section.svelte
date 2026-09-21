@@ -71,9 +71,9 @@
   <Button variant="outline" size="sm" onclick={() => transfer(api.importProfile)}><Upload />Import</Button>
 </SectionHeader>
 
-<section class="overflow-hidden rounded-lg border border-border">
+<section class="list-box">
   {#each view?.profiles ?? [] as profile, index (profile.id)}
-    <div class="group flex min-h-14 items-center gap-3 px-4 py-2.5" class:border-t={index > 0}>
+    <div class="group list-row" class:border-t={index > 0}>
       <button
         class="flex shrink-0 items-center gap-1 text-faint hover:text-foreground"
         aria-label="Show settings"
