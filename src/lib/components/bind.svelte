@@ -9,7 +9,13 @@
 </script>
 
 {#if chords.length === 0}
-  <span class="text-faint">none</span>
+  <!-- No key: an empty keycap, the size of a real one so that columns of keys stay aligned. -->
+  <span
+    class="inline-flex h-[1.375rem] min-w-[1.375rem] shrink-0 rounded-sm border border-dashed border-foreground/25"
+    role="img"
+    aria-label="Not bound"
+    title="Not bound"
+  ></span>
 {:else}
   <span class="inline-flex items-center gap-1">
     {#each chords as chord, index (index)}
