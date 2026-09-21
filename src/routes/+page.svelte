@@ -40,6 +40,8 @@
   // with many does not push the others off the screen.
   const CARD_ROWS = 4;
   let unfolded = $state<number[]>([]);
+  // The champion whose card shows its remove and delete buttons.
+  let editingCard = $state<number | null>(null);
   // With this many champions a filter appears.
   const FILTER_FROM = 9;
   let championFilter = $state("");
@@ -313,23 +315,39 @@
                 <p class="min-w-0 truncate text-sm font-medium">{overlay.champion.name}</p>
                 {#if view?.activeOverlay?.id === overlay.champion.id}<Status>active</Status>{/if}
                 <span class="flex-1"></span>
-                <Button
-                  class="-mr-1 text-faint opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-                  variant="ghost"
-                  size="icon-sm"
-                  onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
-                  aria-label="Delete {overlay.champion.name}'s settings"
-                  title="Delete {overlay.champion.name}'s settings"
-                >
-                  <Trash2 />
-                </Button>
+                <!-- A card is read far more often than it is changed, so what changes it shows
+                     only once asked for. Nothing depends on hovering. -->
+                {#if editingCard === overlay.champion.id}
+                  <Button
+                    class="text-muted-foreground"
+                    variant="ghost"
+                    size="icon-sm"
+                    onclick={() => (editing = { id, mode: "delete", name: overlay.champion.name })}
+                    aria-label="Delete {overlay.champion.name}'s settings"
+                    title="Delete all of {overlay.champion.name}'s settings"
+                  >
+                    <Trash2 />
+                  </Button>
+                  <Button class="-mr-1" variant="secondary" size="sm" onclick={() => (editingCard = null)}>Done</Button>
+                {:else}
+                  <Button
+                    class="-mr-1 text-faint hover:text-foreground"
+                    variant="ghost"
+                    size="icon-sm"
+                    onclick={() => (editingCard = overlay.champion.id)}
+                    aria-label="Edit {overlay.champion.name}'s settings"
+                    title="Edit"
+                  >
+                    <Pencil />
+                  </Button>
+                {/if}
               {/if}
             </div>
             <ul class="pt-1 text-xs">
               {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
                 <!-- Remove, and the question it leads to, lie over the right end of the row, so
                      that they take no room of their own and nothing moves when they appear. -->
-                <li class="group/row relative grid min-h-7 grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
+                <li class="relative grid min-h-8 items-center gap-2 {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}">
                   <span class="leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
                     {settingLabel(setting.key)}
                   </span>
@@ -356,12 +374,10 @@
                       </Button>
                       <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
                     </span>
-                  {:else}
-                    <span
-                      class="absolute inset-y-0 right-0 flex items-center bg-linear-to-l from-background from-60% to-transparent pl-6 opacity-0 transition-opacity group-hover/row:opacity-100 focus-within:opacity-100"
-                    >
+                  {:else if editingCard === overlay.champion.id}
+                    <span class="flex items-center">
                       <button
-                        class="flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
+                        class="-mr-1 flex size-6 items-center justify-center rounded text-muted-foreground hover:text-foreground"
                         disabled={busy !== null}
                         title="Remove this setting from {overlay.champion.name}"
                         aria-label="Remove {settingLabel(setting.key)} from {overlay.champion.name}"
