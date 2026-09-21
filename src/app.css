@@ -230,3 +230,24 @@
 @utility hover-danger {
 	@apply hover:text-destructive;
 }
+
+
+/* An icon button's glyph lights up under the pointer: a soft glow from its own strokes, in its
+   own colour, so a delete icon glows red and the rest terracotta. */
+@utility icon-glow {
+	& svg {
+		transition:
+			filter 0.2s ease-out,
+			color 0.2s ease-out;
+	}
+
+	&:hover svg {
+		filter: drop-shadow(0 0 0.25rem color-mix(in oklch, currentColor 65%, transparent));
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		& svg {
+			transition: none;
+		}
+	}
+}
