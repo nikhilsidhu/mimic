@@ -482,6 +482,13 @@ impl Engine {
         Ok(profile.name)
     }
 
+    /// How many settings applying each of `profiles` would change on the logged-in account, in
+    /// the same order. `None` with nobody logged in. The account is read once for all of them.
+    pub fn differences(&self, profiles: &[Profile]) -> Option<Vec<usize>> {
+        let current = read_settings(&self.connection().ok()?).ok()?;
+        Some(profiles.iter().map(|profile| would_change(&current, &profile.settings).len()).collect())
+    }
+
     pub fn profiles(&self) -> Result<Vec<Profile>> {
         Ok(self.inner.store.list_profiles()?)
     }

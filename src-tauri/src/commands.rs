@@ -74,6 +74,9 @@ pub struct ProfileView {
     name: String,
     active: bool,
     settings: usize,
+    /// How many settings applying it would change on the logged-in account; absent with nobody
+    /// logged in.
+    differs: Option<usize>,
 }
 
 #[derive(Debug, Serialize)]
@@ -141,6 +144,7 @@ pub fn view(engine: State<Engine>) -> View {
         Vec::new()
     });
     let base = engine.base_settings();
+    let differences = engine.differences(&profiles);
     View {
         status: status.label(),
         connected: status.riot_id().is_some(),
@@ -151,9 +155,11 @@ pub fn view(engine: State<Engine>) -> View {
         pending: engine.pending_profile(),
         profiles: profiles
             .into_iter()
-            .map(|profile| ProfileView {
+            .enumerate()
+            .map(|(index, profile)| ProfileView {
                 active: active.as_deref() == Some(profile.id.as_str()),
                 settings: profile.settings.len(),
+                differs: differences.as_ref().map(|counts| counts[index]),
                 id: profile.id,
                 name: profile.name,
             })

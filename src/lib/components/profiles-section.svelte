@@ -105,7 +105,7 @@
       {:else}
         <!-- The name opens the profile too; the arrow beside it is the same control for the keyboard. -->
         <button
-          class="min-w-0 flex-1 cursor-pointer text-left"
+          class="min-w-0 flex-1 text-left"
           tabindex="-1"
           aria-hidden="true"
           onclick={() => (opened = opened === profile.id ? null : profile.id)}
@@ -117,7 +117,12 @@
           {#if view?.pending === profile.name}
             <span class="block text-xs {WAITING}">Applies at next login</span>
           {:else}
-            <span class="block text-xs text-faint">{profile.settings} settings</span>
+            <!-- How it compares with the logged-in account, so that it need not be opened to find out. -->
+            <span class="block text-xs text-faint">
+              {profile.settings} settings{#if profile.differs === 0}{" · "}matches this account{:else if profile.differs}{" · "}<span
+                  class="text-muted-foreground">{profile.differs} would change</span
+                >{/if}
+            </span>
           {/if}
         </button>
         <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">

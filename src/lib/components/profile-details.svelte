@@ -58,22 +58,15 @@
   {#if failure}
     <p class="text-xs text-destructive">{failure}</p>
   {:else if details}
-    <div>
-      <p class={heading}>
-        {#if details.preview === null}
-          Log into League to see what applying would change
-        {:else if details.preview.length === 0}
-          Matches this account
-        {:else}
-          Applying would change {details.preview.length}
-        {/if}
-      </p>
-      {#if details.preview?.length}
-        <div class="overflow-hidden rounded-md border border-border bg-background">
+    <!-- How many would change is said on the profile's row; here is which. -->
+    {#if details.preview?.length}
+      <div>
+        <p class={heading}>Would change</p>
+        <div class="max-h-56 overflow-y-auto rounded-md border border-border bg-background">
           <ChangeList changes={details.preview} />
         </div>
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div class="flex items-center gap-3">
       <Input class="h-6 w-48" bind:value={filter} placeholder="Filter settings…" />

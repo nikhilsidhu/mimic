@@ -6,6 +6,8 @@ export type ProfileView = {
   name: string;
   active: boolean;
   settings: number;
+  /** How many settings applying it would change on the logged-in account; null with nobody logged in. */
+  differs: number | null;
 };
 
 export type Champion = {
