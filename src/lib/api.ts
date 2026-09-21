@@ -200,3 +200,16 @@ export const setAutostart = (enabled: boolean) => invoke<void>("set_autostart", 
 export const getInstallPath = () => invoke<string | null>("install_path");
 /** Asks for the League folder. Resolves to null when the dialog is cancelled. */
 export const chooseInstall = () => invoke<string | null>("choose_install");
+
+export type UpdateStatus = {
+  /** The version running. */
+  current: string;
+  /** A newer one, if one was found. */
+  available: string | null;
+};
+
+export const getUpdateStatus = () => invoke<UpdateStatus>("update_status");
+/** Looks for a newer version now. Resolves to a sentence to show. */
+export const checkUpdate = () => invoke<string>("check_update");
+/** Installs the newer version. mimic restarts, so this only comes back on failure. */
+export const installUpdate = () => invoke<void>("install_update");

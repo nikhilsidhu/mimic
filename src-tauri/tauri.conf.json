@@ -31,6 +31,15 @@
       }
     }
   },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFFQkE4QUVCN0I0NzNGNEEKUldSS1AwZDc2NHE2SHR2ZXVVb1JnZDNvM3ltQjlyS1ZYS3o1Vm4rWlMxWCs2ZDJhZEpkb0J6V1gK",
+      "endpoints": ["https://github.com/nikhilsidhu/mimic/releases/latest/download/latest.json"],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  },
   "bundle": {
     "active": true,
     "targets": ["nsis"],

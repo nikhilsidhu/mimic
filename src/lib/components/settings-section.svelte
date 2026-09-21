@@ -13,6 +13,8 @@
   let autostart = $state(false);
   let notices = $state(true);
   let theme = $state<Theme>("system");
+  let update = $state<api.UpdateStatus | null>(null);
+  let updating = $state(false);
   const themes: Theme[] = ["system", "light", "dark"];
   let install = $state<string | null>(null);
 
@@ -21,6 +23,7 @@
 
   const refreshInstall = async () => (install = await api.getInstallPath());
   const refreshMuted = async () => (muted = await api.getMutedSettings());
+  const refreshUpdate = async () => (update = await api.getUpdateStatus());
 
   onMount(() => {
     theme = getTheme();
@@ -28,10 +31,12 @@
     api.getShowsNotices().then((enabled) => (notices = enabled));
     refreshInstall();
     refreshMuted();
+    refreshUpdate();
     // mimic picks a chosen folder up within seconds; the view changes when it does.
     return api.onViewChanged(() => {
       refreshInstall();
       refreshMuted();
+      refreshUpdate();
     });
   });
 
@@ -43,6 +48,21 @@
       onmessage(String(err), true);
     }
     refreshInstall();
+  }
+
+  // Installs the newer version if one is known, and looks for one otherwise.
+  async function updateOrCheck() {
+    if (updating) return;
+    updating = true;
+    try {
+      if (update?.available) await api.installUpdate();
+      else onmessage(await api.checkUpdate(), false);
+    } catch (err) {
+      onmessage(String(err), true);
+    } finally {
+      updating = false;
+    }
+    refreshUpdate();
   }
 
   async function setNotices(enabled: boolean) {
@@ -95,7 +115,6 @@
   <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium">Theme</p>
-      <p class="text-xs text-muted-foreground">System follows Windows.</p>
     </div>
     <div class="flex rounded-md border border-border p-0.5" role="radiogroup" aria-label="Theme">
       {#each themes as option (option)}
@@ -125,9 +144,20 @@
   <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
     <div class="min-w-0 flex-1">
       <p class="text-sm font-medium">Data</p>
-      <p class="text-xs text-muted-foreground">Profiles, history and logs, as plain files.</p>
+      <p class="text-xs text-muted-foreground">Profiles, history and logs.</p>
     </div>
     <Button variant="outline" size="sm" onclick={() => api.openDataFolder()}>Open folder</Button>
+  </div>
+  <div class="flex min-h-14 items-center gap-3 border-t border-border px-4 py-2.5">
+    <div class="min-w-0 flex-1">
+      <p class="text-sm font-medium">Version {update?.current ?? ""}</p>
+      <p class="text-xs text-muted-foreground">
+        {update?.available ? `${update.available} is available.` : "Check for updates."}
+      </p>
+    </div>
+    <Button variant={update?.available ? "default" : "outline"} size="sm" disabled={updating} onclick={updateOrCheck}>
+      {updating ? "Working…" : update?.available ? "Update" : "Check"}
+    </Button>
   </div>
   {#if muted.length}
     <div class="border-t border-border px-4 py-2.5">

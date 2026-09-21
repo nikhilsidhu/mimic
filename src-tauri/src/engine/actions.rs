@@ -504,6 +504,11 @@ impl Engine {
         *self.inner.reset.lock().unwrap() = false;
         Ok(said)
     }
+    /// Whether a game is starting or running on the logged-in account.
+    pub fn in_game(&self) -> bool {
+        self.status.borrow().phase().is_some_and(in_game)
+    }
+
     /// Whether the logged-in account applies its profile by itself at login.
     pub fn auto_apply(&self) -> bool {
         self.account().is_some_and(|account| account.auto_apply)

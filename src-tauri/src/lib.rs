@@ -7,6 +7,7 @@ pub mod platform;
 pub mod profiles;
 pub mod settings;
 mod tray;
+mod updates;
 
 use tauri::{Manager, WindowEvent};
 
@@ -31,6 +32,8 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updates::Available::default())
         .manage(tray::Notice::default())
         .manage(tray::PanelHidden::default())
         .invoke_handler(tauri::generate_handler![
@@ -67,6 +70,9 @@ pub fn run() {
             commands::choose_install,
             commands::autostart,
             commands::set_autostart,
+            commands::update_status,
+            commands::check_update,
+            commands::install_update,
             commands::open_manager,
             commands::shows_notices,
             commands::set_shows_notices,
@@ -81,6 +87,7 @@ pub fn run() {
             let engine = tauri::async_runtime::block_on(async { Engine::spawn(Store::new(&data_dir), Champions::new(&data_dir)) });
             app.manage(engine.clone());
             tray::init(app.handle(), engine)?;
+            updates::watch(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| match event {

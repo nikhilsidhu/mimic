@@ -36,6 +36,7 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -8,7 +8,7 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_opener::OpenerExt;
 
 use crate::engine::{self, Drift, DriftChoice, Engine, OverlaySource};
-use crate::{platform, tray};
+use crate::{platform, tray, updates};
 
 /// Longest profile name the UI may create.
 const MAX_NAME: usize = 40;
@@ -476,6 +476,37 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
 #[tauri::command]
 pub fn open_manager(app: AppHandle) {
     tray::show_manager(&app);
+}
+
+#[derive(Debug, Serialize)]
+pub struct UpdateStatus {
+    /// The version running.
+    current: String,
+    /// A newer one, if one was found.
+    available: Option<String>,
+}
+
+#[tauri::command]
+pub fn update_status(app: AppHandle, available: State<updates::Available>) -> UpdateStatus {
+    UpdateStatus { current: app.package_info().version.to_string(), available: available.version() }
+}
+
+#[tauri::command]
+pub async fn check_update(app: AppHandle) -> Answer {
+    match updates::check(&app).await.map_err(|err| format!("Could not look for updates: {err}"))? {
+        Some(version) => Ok(format!("mimic {version} is available")),
+        None => Ok("mimic is up to date".to_owned()),
+    }
+}
+
+/// Installs the newer version, which restarts mimic. Not while a game is under way: a
+/// champion's settings may be on and have to come off after it.
+#[tauri::command]
+pub async fn install_update(app: AppHandle, engine: State<'_, Engine>) -> Result<(), String> {
+    if engine.in_game() {
+        return Err("Finish your game first; mimic restarts to update.".to_owned());
+    }
+    updates::install(&app).await.map_err(|err| format!("Could not update: {err}"))
 }
 
 /// Whether what mimic does unasked is announced in a popup.
