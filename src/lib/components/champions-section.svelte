@@ -129,16 +129,18 @@
           {/if}
         {/if}
       </div>
-      <ul class="pt-1 text-xs">
+      <!-- One grid for the whole list, which every row shares: name, old, arrow, new, and in
+           edit mode the remove button. -->
+      <ul class="grid gap-x-1.5 pt-1 text-xs {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto_auto]'}">
         {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
           <!-- Remove, and the question it leads to, lie over the right end of the row, so
                that they take no room of their own and nothing moves when they appear. -->
-          <li class="relative grid min-h-8 items-center gap-2 {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}">
-            <span class="leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
+          <li class="relative col-span-full grid min-h-8 grid-cols-subgrid items-center">
+            <span class="pr-2 leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
               {settingLabel(setting.key)}
             </span>
             <!-- What the champion changes it from, when that is known, and to. -->
-            <FromTo keys={isBind(setting)} from={setting.from ?? undefined} to={setting.value} />
+            <FromTo keys={isBind(setting)} name={setting.key} from={setting.from ?? undefined} to={setting.value} />
             {#if removing === `${id}/${api.muteId(setting)}`}
               <span class="absolute inset-y-0 right-0 flex items-center gap-1 bg-linear-to-l from-background from-85% to-transparent pl-8">
                 <Confirm
