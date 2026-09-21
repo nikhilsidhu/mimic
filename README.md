@@ -48,11 +48,16 @@ mimic is new, so if something looks off, please [open an issue](https://github.c
 - Black, dark and light themes.
 - Lives in the tray. One panel for everyday use, a manager window for the rest.
 
-<p align="center">
-  <img src="docs/screenshots/panel.png" width="300" alt="The tray panel: the account, the champion whose settings are on, and the profiles" />
-  &nbsp;&nbsp;
-  <img src="docs/screenshots/prompt.png" width="360" alt="After a game: what changed, and where it should go" />
-</p>
+<table align="center">
+  <tr>
+    <td valign="top"><img src="docs/screenshots/panel.png" width="320" alt="The tray panel: the account, the champion whose settings are on, and the profiles" /></td>
+    <td valign="top"><img src="docs/screenshots/prompt.png" width="380" alt="After a game: what changed, and where it should go" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>The tray panel</sub></td>
+    <td align="center"><sub>After a game</sub></td>
+  </tr>
+</table>
 
 ## Questions
 
