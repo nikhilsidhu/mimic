@@ -8,3 +8,4 @@ export const WAITING = "text-amber-700 dark:text-amber-400";
 /** Live right now: a connected account, a champion's settings that are on. */
 export const DOT_LIVE = "bg-live";
 export const DOT_OFF = "bg-muted-foreground/40";
+export const DOT_WAITING = "bg-amber-500";

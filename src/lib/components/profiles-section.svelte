@@ -3,7 +3,6 @@
   import { tick } from "svelte";
   import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import CopyPlus from "@lucide/svelte/icons/copy-plus";
-  import Diff from "@lucide/svelte/icons/diff";
   import Download from "@lucide/svelte/icons/download";
   import Pencil from "@lucide/svelte/icons/pencil";
   import Save from "@lucide/svelte/icons/save";
@@ -125,10 +124,11 @@
           <span class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
-            <!-- How far it is from what is on the logged-in account; nothing when they match. -->
-            {#if profile.differs}
-              <Status dot={false} title="Applying it would change {profile.differs} settings on this account">
-                <Diff class="size-2.5" />{profile.differs}
+            <!-- On the profile in use a difference means the account was changed since; on the
+                 others it is expected, and is said where it matters, on Apply. -->
+            {#if profile.active && profile.differs}
+              <Status tone="waiting" title="{profile.differs} settings on this account are no longer what {profile.name} has">
+                {profile.differs} changed
               </Status>
             {/if}
           </span>
@@ -184,7 +184,13 @@
             <Trash2 />
           </Button>
         </div>
-        <Button variant="outline" size="sm" disabled={busy !== null} onclick={() => run(profile.id, () => api.applyProfile(profile.id))}>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={busy !== null}
+          title={profile.differs ? `Changes ${profile.differs} settings on this account` : profile.differs === 0 ? "Already matches this account" : undefined}
+          onclick={() => run(profile.id, () => api.applyProfile(profile.id))}
+        >
           {busy === profile.id ? "Applying…" : "Apply"}
         </Button>
       {/if}
