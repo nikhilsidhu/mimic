@@ -24,7 +24,7 @@
   let newName = $state("");
   /** What is running: a profile id, "save" or "undo". One action at a time. */
   let busy = $state<string | null>(null);
-  let message = $state<{ text: string; failed: boolean } | null>(null);
+  let message = $state<{ text: string; failed: boolean } | null>(null);| null>({ text: "Nothing is saved in the demo", failed: false }); // TEMP-MSG
   let copied = $state(false);
   let messageTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -234,7 +234,9 @@
   {/if}
 
   {#if message}
-    <p class="px-3 pb-2 leading-snug" class:text-destructive={message.failed} class:text-muted-foreground={!message.failed}>
+    <!-- Space of its own above and below: it used to borrow the save form's, which is no longer
+         always above it. -->
+    <p class="px-3 py-2 leading-snug" class:text-destructive={message.failed} class:text-muted-foreground={!message.failed}>
       {message.text}
     </p>
   {/if}
