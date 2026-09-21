@@ -4,7 +4,7 @@
   import RefreshCw from "@lucide/svelte/icons/refresh-cw";
   import X from "@lucide/svelte/icons/x";
   import { onMount } from "svelte";
-  import SectionHeader from "$lib/components/section-header.svelte";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import SettingRow from "$lib/components/setting-row.svelte";
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
@@ -23,11 +23,20 @@
   // A check just now found nothing newer.
   let upToDate = $state(false);
   let install = $state<string | null>(null);
+  /** Whether the League folder has been looked for and not found. */
+  let looked = $state(false);
+  const missing = $derived(looked && install === null);
+  /** Folded until asked for; a missing League folder opens it, as the way to fix that is inside. */
+  let expanded = $state<boolean | null>(null);
+  const open = $derived(expanded ?? missing);
 
   // Settings muted from the prompt about changed settings, as `file/section/key`.
   let muted = $state<string[]>([]);
 
-  const refreshInstall = async () => (install = await api.getInstallPath());
+  const refreshInstall = async () => {
+    install = await api.getInstallPath();
+    looked = true;
+  };
   const refreshMuted = async () => (muted = await api.getMutedSettings());
   const refreshUpdate = async () => (update = await api.getUpdateStatus());
 
@@ -81,8 +90,19 @@
   }
 </script>
 
-<SectionHeader title="Settings" />
+<!-- Set once and then left alone, so folded away like History, unless League was not found: what
+     fixes that is in here. -->
+<button class="flex w-full items-center gap-2 pt-2 text-left" aria-expanded={open} onclick={() => (expanded = !open)}>
+  <ChevronRight class="size-4 shrink-0 text-faint transition-transform {open ? 'rotate-90' : ''}" />
+  <div class="min-w-0 flex-1">
+    <h2 class="text-lg font-semibold tracking-tight">Settings</h2>
+    <p class="text-sm" class:text-muted-foreground={!missing} class:text-destructive={missing}>
+      {missing ? "The League folder was not found." : "Startup, notices, theme, folders and updates."}
+    </p>
+  </div>
+</button>
 
+{#if open}
 <section class="list-box">
   <SettingRow title="Start with Windows" label>
     {#snippet description()}
@@ -178,3 +198,4 @@
     </div>
   {/if}
 </section>
+{/if}
