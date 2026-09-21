@@ -1,12 +1,11 @@
 <!-- Source for every app icon: `npx tauri icon src-tauri/app-icon.svg` regenerates `icons/`.
-     A lowercase m without the stem's tip above the first arch, whose second arch is a fainter
-     copy of the first. -->
+     A lowercase m whose second arch is a fainter copy of the first. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
   <rect width="1024" height="1024" rx="224" fill="#0e0e10" />
   <!-- Scaled about the centre so the letter fills the square; it has to read at 16px in the tray. -->
   <g fill="none" stroke="#fafafa" stroke-width="104" stroke-linecap="round" stroke-linejoin="round"
      transform="translate(512 512) scale(1.25) translate(-512 -512)">
     <path d="M752 676V468a120 120 0 0 0-240 0" opacity="0.4" />
-    <path d="M272 676V468a120 120 0 0 1 240 0v208" />
+    <path d="M272 348v328M272 468a120 120 0 0 1 240 0v208" />
   </g>
 </svg>
