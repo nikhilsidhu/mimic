@@ -1,9 +1,13 @@
-// The colour theme, shared by every window through localStorage. `app.html` applies it
-// before the first paint; this keeps it current afterwards.
+// The colour theme, shared by every window. It is kept in localStorage, which `app.html`
+// reads before the first paint, and a change is broadcast as a Tauri event: the browser's own
+// `storage` event does not reliably reach the other windows, least of all hidden ones.
+
+import { emit, listen } from "@tauri-apps/api/event";
 
 export type Theme = "system" | "light" | "dark" | "black";
 
 const KEY = "theme";
+const CHANGED = "theme-changed";
 /** Every theme, in the order they are offered. */
 export const THEMES: Theme[] = ["system", "light", "dark", "black"];
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
@@ -24,17 +28,20 @@ function apply() {
 export function setTheme(theme: Theme) {
   localStorage.setItem(KEY, theme);
   apply();
+  void emit(CHANGED);
 }
 
 /** Follows changes made in another window or in Windows itself. Returns a function that stops. */
 export function watchTheme(): () => void {
   apply();
   const system = prefersDark();
-  // `storage` only fires in the windows that did not make the change.
-  window.addEventListener("storage", apply);
+  const unlisten = listen(CHANGED, apply);
   system.addEventListener("change", apply);
+  // A window that was hidden while the theme changed catches up when it is shown again.
+  document.addEventListener("visibilitychange", apply);
   return () => {
-    window.removeEventListener("storage", apply);
+    void unlisten.then((stop) => stop());
     system.removeEventListener("change", apply);
+    document.removeEventListener("visibilitychange", apply);
   };
 }
