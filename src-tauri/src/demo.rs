@@ -10,7 +10,7 @@ use time::{Duration, OffsetDateTime};
 use crate::engine::{ChampionRef, Drift};
 use crate::lcu::Summoner;
 use crate::profiles::{Account, Accounts, Overlay, Profile, Snapshot, State, Store, SCHEMA_VERSION};
-use crate::settings::{Change, SettingsMap};
+use crate::settings::{Change, PersistedSettings, SettingsMap};
 
 const PUUID: &str = "demo-account";
 const AZIR: u32 = 268;
@@ -136,9 +136,15 @@ fn seed(store: &Store, real_data_dir: &Path) -> Result<(), crate::profiles::Prof
     Ok(())
 }
 
-/// A small but believable set of settings. The count shown is of these.
+/// A real set of settings, the one the tests use, with the demo's keys on top. Read from the
+/// source tree, which is where a development build runs from.
 fn base_settings() -> SettingsMap {
-    let mut settings = SettingsMap::default();
+    let fixture = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/fixtures/PersistedSettings.json");
+    let mut settings = std::fs::read(fixture)
+        .ok()
+        .and_then(|bytes| serde_json::from_slice::<PersistedSettings>(&bytes).ok())
+        .map(|persisted| SettingsMap::from(&persisted))
+        .unwrap_or_default();
     // Quick cast on the spell keys, normal cast on Shift and self cast on Alt, as many
     // players have it.
     let binds = [
@@ -166,10 +172,6 @@ fn base_settings() -> SettingsMap {
     ];
     for (key, value) in binds {
         settings.set("Input.ini", "GameEvents", key, value);
-    }
-    // Padded out to the size of a real profile, which holds a few hundred settings.
-    for index in 0..340 {
-        settings.set("Game.cfg", "HUD", &format!("Demo{index}"), "1");
     }
     settings.set("Game.cfg", "HUD", "MinimapScale", "1.2");
     settings.set("Game.cfg", "Performance", "ShowFPSAndLatency", "0");
