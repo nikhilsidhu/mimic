@@ -24,6 +24,10 @@ const BLUR_SETTLE: Duration = Duration::from_millis(100);
 pub const PANEL: &str = "panel";
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
 const DRIFT_SIZE: (f64, f64) = (380.0, 376.0);
+/// What a window shows before its page has loaded: near black, as the page will be, where the
+/// default is a flash of white.
+const WINDOW_GROUND: tauri::window::Color = tauri::window::Color(10, 10, 10, 255);
+
 /// The least and the most the prompt's height is fitted to; past the most, its list scrolls.
 const DRIFT_HEIGHT: (f64, f64) = (220.0, 560.0);
 
@@ -121,6 +125,7 @@ fn panel_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
     }
     WebviewWindowBuilder::new(app, PANEL, WebviewUrl::App(PANEL.into()))
         .title("mimic")
+        .background_color(WINDOW_GROUND)
         .inner_size(PANEL_SIZE.0, PANEL_SIZE.1)
         .decorations(false)
         .resizable(false)
@@ -246,6 +251,7 @@ fn show_popup(app: &AppHandle, label: &str, width: f64, height: f64) -> tauri::R
         Some(window) => window,
         None => WebviewWindowBuilder::new(app, label, WebviewUrl::App(label.into()))
             .title("mimic")
+            .background_color(WINDOW_GROUND)
             .inner_size(width, height)
             .decorations(false)
             .resizable(false)

@@ -5,6 +5,16 @@
     <link rel="icon" href="%sveltekit.assets%/favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>mimic</title>
+    <!-- The page's ground before any stylesheet has loaded, so that a window never opens white. -->
+    <style>
+      html { background: #ededed; }
+      html.dark { background: #0a0a0a; }
+      html.dark.black { background: #000; }
+      #splash { position: fixed; inset: 0; display: grid; place-items: center; color: #111; animation: splash 1.4s ease-in-out infinite; }
+      html.dark #splash { color: #fafafa; }
+      @keyframes splash { 50% { opacity: 0.45; } }
+      @media (max-height: 320px), (max-width: 420px) { #splash { display: none; } }
+    </style>
     <!-- Before the first paint, so a light theme never flashes dark. Mirrors `lib/theme.ts`. -->
     <script>
       (function () {
@@ -17,6 +27,14 @@
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
+    <!-- The mimic mark while the page loads; the layout removes it once it is up. Not in the
+         small popups, which have no room for it. -->
+    <div id="splash" aria-hidden="true">
+      <svg viewBox="212 288 600 448" width="64" fill="none" stroke="currentColor" stroke-width="104" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M752 676V468a120 120 0 0 0-240 0" opacity="0.4" />
+        <path d="M272 348v328M272 468a120 120 0 0 1 240 0v208" />
+      </svg>
+    </div>
     <div style="display: contents">%sveltekit.body%</div>
   </body>
 </html>
