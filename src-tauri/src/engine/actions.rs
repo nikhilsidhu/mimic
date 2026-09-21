@@ -36,10 +36,18 @@ pub enum ActionError {
     InvalidImport(String),
     #[error("could not read League's settings file: {0}")]
     ReadSettings(String),
-    #[error(transparent)]
-    Lcu(#[from] LcuError),
+    /// Shown to the user, so it says what to do; the cause goes to the log.
+    #[error("{}", if matches!(.0, LcuError::Status { .. }) { "League refused that. Try again in a moment." } else { "League is not responding. Try again in a moment." })]
+    Lcu(LcuError),
     #[error(transparent)]
     Store(#[from] ProfileError),
+}
+
+impl From<LcuError> for ActionError {
+    fn from(err: LcuError) -> Self {
+        tracing::warn!("a request to the League client failed: {err}");
+        ActionError::Lcu(err)
+    }
 }
 
 pub type Result<T> = std::result::Result<T, ActionError>;
