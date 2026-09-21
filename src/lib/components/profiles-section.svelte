@@ -124,11 +124,15 @@
           <span class="flex h-5 items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
-            <!-- On the profile in use a difference means the account was changed since; on the
-                 others it is expected, and is said where it matters, on Apply. -->
+            <!-- A state, as a game's graphics preset turns to "Custom" and a Mac document to
+                 "Edited": only the profile in use can be edited, the others differ by design.
+                 How much is said where it matters, on Apply and in the opened profile. -->
             {#if profile.active && profile.differs}
-              <Status tone="waiting" title="{profile.differs} settings on this account are no longer what {profile.name} has">
-                {profile.differs} changed
+              <Status
+                tone="waiting"
+                title="{profile.differs === 1 ? '1 setting' : `${profile.differs} settings`} on this account no longer match {profile.name}. Open it to see which."
+              >
+                edited
               </Status>
             {/if}
           </span>
