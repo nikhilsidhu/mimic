@@ -16,7 +16,7 @@ public static class MimicWin {
   [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
   [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr h);
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
-  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
+  [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int L, T, R, B; }
 }
 "@
@@ -44,11 +44,14 @@ foreach ($window in $script:found) {
     $h, $r = $window
     $width = $r.R - $r.L
     $height = $r.B - $r.T
-    [MimicWin]::SetForegroundWindow($h) | Out-Null
-    Start-Sleep -Milliseconds 600
     $bitmap = New-Object System.Drawing.Bitmap $width, $height
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
-    $graphics.CopyFromScreen($r.L, $r.T, 0, 0, (New-Object System.Drawing.Size $width, $height))
+    # The window draws itself into the bitmap, so it does not matter what covers it on
+    # screen. Copying from the screen instead captured whatever was in front. Flag 2 is
+    # PW_RENDERFULLCONTENT, which web view content needs.
+    $hdc = $graphics.GetHdc()
+    [MimicWin]::PrintWindow($h, $hdc, 2) | Out-Null
+    $graphics.ReleaseHdc($hdc)
     $n++
     $path = Join-Path $OutDir "window-$n.png"
     $bitmap.Save($path)
