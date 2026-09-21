@@ -84,7 +84,7 @@
     </div>
 
     <!-- Keys on one side, everything else on the other, so that neither is a list of hundreds. -->
-    <div class="grid gap-3 min-[720px]:grid-cols-2">
+    <div class="grid grid-cols-2 gap-3">
       <div class="min-w-0">
         <p class={heading}>Keys · {shownBinds.length}</p>
         <ScrollArea class="h-64 rounded-md border border-border bg-background">

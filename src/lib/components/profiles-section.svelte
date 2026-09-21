@@ -103,17 +103,23 @@
           oncancel={() => (editing = null)}
         />
       {:else}
-        <div class="min-w-0 flex-1">
-          <p class="flex items-center gap-2 truncate text-sm font-medium">
+        <!-- The name opens the profile too; the arrow beside it is the same control for the keyboard. -->
+        <button
+          class="min-w-0 flex-1 cursor-pointer text-left"
+          tabindex="-1"
+          aria-hidden="true"
+          onclick={() => (opened = opened === profile.id ? null : profile.id)}
+        >
+          <span class="flex items-center gap-2 truncate text-sm font-medium">
             {profile.name}
             {#if profile.active}<Status>active</Status>{/if}
-          </p>
+          </span>
           {#if view?.pending === profile.name}
-            <p class="text-xs {WAITING}">Applies at next login</p>
+            <span class="block text-xs {WAITING}">Applies at next login</span>
           {:else}
-            <p class="text-xs text-faint">{profile.settings} settings</p>
+            <span class="block text-xs text-faint">{profile.settings} settings</span>
           {/if}
-        </div>
+        </button>
         <div class="flex items-center gap-1 text-faint transition-colors group-hover:text-muted-foreground">
           <Button variant="ghost" size="icon" onclick={() => startRename(profile)} aria-label="Rename" title="Rename">
             <Pencil />

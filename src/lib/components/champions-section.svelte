@@ -90,7 +90,8 @@
 <section class="grid gap-3 min-[720px]:grid-cols-2">
   {#each champions as overlay (overlay.champion.id)}
     {@const id = overlay.champion.id}
-    {@const folded = overlay.settings.length > CARD_ROWS && !unfolded.includes(overlay.champion.id)}
+    <!-- Editing a card shows all of it: what is to be removed may be below the fold. -->
+    {@const folded = overlay.settings.length > CARD_ROWS && !unfolded.includes(id) && editingCard !== id}
     <div class="group rounded-lg border border-border px-3 pt-2.5 pb-2">
       <div class="flex h-8 items-center gap-2.5">
         <img src={overlay.champion.icon} alt="" class="size-7 shrink-0 rounded-md" />
@@ -133,7 +134,7 @@
         {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
           <!-- Remove, and the question it leads to, lie over the right end of the row, so
                that they take no room of their own and nothing moves when they appear. -->
-          <li class="relative grid min-h-8 items-center gap-2 {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}">
+          <li class="relative grid min-h-7.5 items-center gap-2 {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}">
             <span class="pr-2 leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
               {settingLabel(setting.key)}
             </span>
