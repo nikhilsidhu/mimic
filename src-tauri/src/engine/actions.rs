@@ -30,7 +30,7 @@ pub enum ActionError {
     NoBaseline,
     #[error("a champion's settings are on right now; try again after the game")]
     OverlayActive,
-    #[error("nothing on this account differs from its base, so there is nothing to keep")]
+    #[error("nothing has changed on this account, so there is nothing to keep")]
     NothingChanged,
     #[error("that file cannot be imported: {0}")]
     InvalidImport(String),

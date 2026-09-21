@@ -11,7 +11,9 @@
   import { ScrollArea } from "$lib/components/ui/scroll-area";
   import * as api from "$lib/api";
 
-  let { onsaved, oncancel }: { onsaved: (said: string) => void; oncancel: () => void } = $props();
+  // `against` names what the account is on, which the sources are compared with.
+  type Props = { against: string | null; onsaved: (said: string) => void; oncancel: () => void };
+  let { against, onsaved, oncancel }: Props = $props();
 
   let champions = $state<api.Champion[]>([]);
   let sources = $state<api.OverlaySource[] | null>(null);
@@ -122,7 +124,7 @@
               </p>
             {:else}
               <p class="truncate text-sm font-medium">From {source.name}</p>
-              <p class="text-xs text-muted-foreground">{count(source.settings)} that differ from your base</p>
+              <p class="text-xs text-muted-foreground">{count(source.settings)} that differ from {against ?? "this account"}</p>
             {/if}
           </div>
           <ChevronRight class="size-4 shrink-0 text-muted-foreground" />

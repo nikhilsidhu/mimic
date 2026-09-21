@@ -74,6 +74,7 @@
 
 {#if adding}
   <AddChampion
+    against={view?.profiles.find((profile) => profile.active)?.name ?? null}
     oncancel={() => (adding = false)}
     onsaved={(said) => {
       adding = false;
