@@ -294,33 +294,30 @@
                  champion's settings read like a small table. Indented to the name. -->
             <ul class="pr-4 pb-3 pl-[3.75rem] text-xs">
               {#each overlay.settings as setting (api.muteId(setting))}
-                {#if removing === `${id}/${api.muteId(setting)}`}
-                  <!-- The whole row asks, like deleting a profile or a champion does. -->
-                  <li class="flex min-h-8 items-center gap-2">
-                    <span class="min-w-0 flex-1 truncate text-sm">
-                      Remove <span class="font-medium">{settingLabel(setting.key)}</span>?
+                <!-- Asking before a removal changes only the last cell, so the text stays put. -->
+                <li class="grid min-h-8 grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] items-center gap-3">
+                  <span class="truncate text-muted-foreground" title="{setting.section} / {setting.key}">
+                    {settingLabel(setting.key)}
+                  </span>
+                  <span class="flex items-center">
+                    {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
+                  </span>
+                  {#if removing === `${id}/${api.muteId(setting)}`}
+                    <span class="flex items-center gap-1.5">
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        disabled={busy !== null}
+                        onclick={() => {
+                          removing = null;
+                          run(id, () => api.removeOverlaySetting(overlay.champion.id, setting));
+                        }}
+                      >
+                        Remove
+                      </Button>
+                      <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
                     </span>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      disabled={busy !== null}
-                      onclick={() => {
-                        removing = null;
-                        run(id, () => api.removeOverlaySetting(overlay.champion.id, setting));
-                      }}
-                    >
-                      Remove
-                    </Button>
-                    <Button variant="ghost" size="sm" onclick={() => (removing = null)}>Cancel</Button>
-                  </li>
-                {:else}
-                  <li class="grid min-h-8 grid-cols-[minmax(0,18rem)_minmax(0,1fr)_auto] items-center gap-3">
-                    <span class="truncate text-muted-foreground" title="{setting.section} / {setting.key}">
-                      {settingLabel(setting.key)}
-                    </span>
-                    <span class="flex items-center">
-                      {#if isBind(setting)}<Bind value={setting.value} />{:else}<span class="font-medium">{setting.value}</span>{/if}
-                    </span>
+                  {:else}
                     <button
                       class="flex h-5 w-7 items-center justify-center rounded text-faint hover:text-foreground disabled:opacity-50"
                       disabled={busy !== null}
@@ -330,8 +327,8 @@
                     >
                       <X class="size-3" />
                     </button>
-                  </li>
-                {/if}
+                  {/if}
+                </li>
               {/each}
             </ul>
           </div>
