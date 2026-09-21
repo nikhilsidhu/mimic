@@ -6,7 +6,6 @@
   import ChangeList from "$lib/components/change-list.svelte";
   import { Button } from "$lib/components/ui/button";
   import * as api from "$lib/api";
-  import { settingLabel } from "$lib/binds";
 
   type Props = {
     /** Decide later, or nothing is left to decide: whoever shows this puts it away. */
@@ -69,8 +68,9 @@
   async function refresh() {
     failure = null;
     drift = await api.getDrift();
-    // Whatever changed may have been changed back in the meantime.
-    if (!drift) onclose();
+    // Whatever changed may have been changed back in the meantime. Rows muted just now keep this
+    // open: their mute can still be undone here.
+    if (!drift && muted.length === 0) onclose();
   }
 
   onMount(() => {
@@ -102,27 +102,26 @@
   });
 
   const choose = (choice: api.DriftChoice) => act(async () => ondone(await api.resolveDrift(choice)));
-  /** The setting muted just now, so that it can be said and taken back on the spot. */
-  let muted = $state<{ id: string; label: string } | null>(null);
+  /** The rows muted while this is open. They stay where they were, with the way back on them. */
+  let muted = $state<api.Change[]>([]);
 
-  // The row goes at once, and a line says what happened, with a way back. Muting the last row
-  // leaves nothing to ask, so that is said on the way out instead.
+  // What is still to decide, with the muted rows back in their places: both are in the order
+  // the settings are stored in.
+  const rows = $derived(
+    [...(drift?.changes ?? []), ...muted].sort((a, b) => api.muteId(a).localeCompare(api.muteId(b))),
+  );
+
   const mute = (change: api.Change) =>
     act(async () => {
-      const id = api.muteId(change);
-      const label = settingLabel(change.key);
-      await api.muteSetting(id);
-      const last = drift?.changes.length === 1;
-      if (last) return ondone(`Muted ${label}. Settings lists what is muted.`);
-      muted = { id, label };
+      await api.muteSetting(api.muteId(change));
+      muted = [...muted, change];
       await refresh();
     });
 
-  const unmute = () =>
+  const unmute = (change: api.Change) =>
     act(async () => {
-      if (!muted) return;
-      await api.unmuteSetting(muted.id);
-      muted = null;
+      await api.unmuteSetting(api.muteId(change));
+      muted = muted.filter((row) => api.muteId(row) !== api.muteId(change));
       await refresh();
     });
 </script>
@@ -143,7 +142,9 @@
       <X />
     </Button>
     <p class="pr-8 text-sm font-medium">
-      {#if drift?.reset}
+      {#if !drift}
+        Nothing left to decide
+      {:else if drift.reset}
         Riot reset your settings
       {:else}
         {drift?.changes.length ?? 0}
@@ -151,7 +152,9 @@
       {/if}
     </p>
     <p class="text-xs text-muted-foreground">
-      {#if drift?.reset}
+      {#if !drift}
+        mimic won't ask about these again.
+      {:else if drift.reset}
         A patch put {drift.changes.length === 1 ? "1 setting" : `${drift.changes.length} settings`} back to Riot's
         defaults. Restore puts yours back.
       {:else}
@@ -162,18 +165,12 @@
 
   <!-- As tall as its rows, so the box ends where the list does; with more than fit it scrolls. -->
   <div class="min-h-0 shrink overflow-y-auto rounded-md border border-border" bind:this={list}>
-    <ChangeList changes={drift?.changes ?? []} onmute={mute} />
+    <ChangeList changes={rows} onmute={mute} muted={muted.map(api.muteId)} onunmute={unmute} />
   </div>
 
   <div class="mt-auto flex flex-col gap-1" bind:this={bottom}>
     {#if failure}
       <p class="pb-1 text-xs text-destructive">{failure}</p>
-    {/if}
-    {#if muted}
-      <p class="flex items-center gap-2 pb-1 text-xs text-muted-foreground">
-        <span class="min-w-0 flex-1 truncate">Muted {muted.label}. mimic won't ask about it again.</span>
-        <button class="shrink-0 font-medium text-foreground hover:underline" onclick={unmute}>Undo</button>
-      </p>
     {/if}
     {#each choices as option, index (option.choice)}
       <button
@@ -188,5 +185,14 @@
         {option.title}
       </button>
     {/each}
+    <!-- Every row was muted: the way back stays on the rows, and this puts the review away. -->
+    {#if !drift}
+      <button
+        class="rounded-md border border-border bg-accent px-2.5 py-1.5 text-left text-sm font-medium transition-colors hover:bg-accent"
+        onclick={onclose}
+      >
+        Done
+      </button>
+    {/if}
   </div>
 </div>
