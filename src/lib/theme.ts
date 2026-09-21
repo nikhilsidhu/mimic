@@ -1,25 +1,28 @@
 // The colour theme, shared by every window through localStorage. `app.html` applies it
 // before the first paint; this keeps it current afterwards.
 
-export type Theme = "system" | "light" | "dark";
+export type Theme = "system" | "light" | "dark" | "black";
 
 const KEY = "theme";
+/** Every theme, in the order they are offered. */
+export const THEMES: Theme[] = ["system", "light", "dark", "black"];
 const prefersDark = () => window.matchMedia("(prefers-color-scheme: dark)");
 
+/** Dark unless something else was chosen: it is how mimic is meant to look. */
 export function getTheme(): Theme {
-  const stored = localStorage.getItem(KEY);
-  return stored === "light" || stored === "dark" ? stored : "system";
+  const stored = localStorage.getItem(KEY) as Theme | null;
+  return stored && THEMES.includes(stored) ? stored : "dark";
 }
 
 function apply() {
   const theme = getTheme();
-  const dark = theme === "dark" || (theme === "system" && prefersDark().matches);
+  const dark = theme === "dark" || theme === "black" || (theme === "system" && prefersDark().matches);
   document.documentElement.classList.toggle("dark", dark);
+  document.documentElement.classList.toggle("black", theme === "black");
 }
 
 export function setTheme(theme: Theme) {
-  if (theme === "system") localStorage.removeItem(KEY);
-  else localStorage.setItem(KEY, theme);
+  localStorage.setItem(KEY, theme);
   apply();
 }
 
