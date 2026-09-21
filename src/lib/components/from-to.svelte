@@ -1,8 +1,6 @@
-<!-- A value changing: the old one, an arrow, the new one. It is three cells of the list's own
-     grid, not a box of its own, so that the list sizes the columns like a table: down it the old
-     values end at the arrow, the arrows share a column, the new values start together, and the
-     widest of them reaches the edge. The row it is in must be a subgrid with three columns
-     for these. -->
+<!-- A value changing: the old one, an arrow, the new one, kept together and pushed to the right,
+     so that down a list the new values end on one line and the old ones reach out to the left
+     as far as they need. -->
 <script lang="ts">
   import ArrowRight from "@lucide/svelte/icons/arrow-right";
   import Bind from "$lib/components/bind.svelte";
@@ -22,15 +20,13 @@
   const said = (value: string | null) => (value === null ? "none" : valueLabel(name, value));
 </script>
 
-<span class="contents">
+<span class="flex shrink-0 items-center justify-end gap-1.5">
   <span class="flex justify-end">
     {#if from !== undefined}
       {#if keys}<Bind value={from} />{:else}<span class="text-muted-foreground">{said(from)}</span>{/if}
     {/if}
   </span>
-  <span class="flex w-3 justify-center">
-    {#if from !== undefined}<ArrowRight class="size-3 text-faint" />{/if}
-  </span>
+  {#if from !== undefined}<ArrowRight class="size-3 shrink-0 text-faint" />{/if}
   <span class="flex justify-start">
     {#if keys}<Bind value={to} />{:else}<span class="font-medium">{said(to)}</span>{/if}
   </span>

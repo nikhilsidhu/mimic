@@ -129,13 +129,11 @@
           {/if}
         {/if}
       </div>
-      <!-- One grid for the whole list, which every row shares: name, old, arrow, new, and in
-           edit mode the remove button. -->
-      <ul class="grid gap-x-1.5 pt-1 text-xs {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto_auto_auto]'}">
+      <ul class="pt-1 text-xs">
         {#each folded ? overlay.settings.slice(0, CARD_ROWS) : overlay.settings as setting (api.muteId(setting))}
           <!-- Remove, and the question it leads to, lie over the right end of the row, so
                that they take no room of their own and nothing moves when they appear. -->
-          <li class="relative col-span-full grid min-h-8 grid-cols-subgrid items-center">
+          <li class="relative grid min-h-8 items-center gap-2 {editingCard === overlay.champion.id ? 'grid-cols-[minmax(0,1fr)_auto_auto]' : 'grid-cols-[minmax(0,1fr)_auto]'}">
             <span class="pr-2 leading-tight text-muted-foreground" title="{setting.section} / {setting.key}">
               {settingLabel(setting.key)}
             </span>
