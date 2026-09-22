@@ -90,6 +90,14 @@ npm run tauri build               # build the installer
 
 Pushing a tag like `v0.1.0` builds a signed installer and attaches it to a draft release. Publishing the draft is what ships the update.
 
+## Code signing policy
+
+Releases are built by GitHub Actions from the tagged source. mimic's auto-updater accepts only builds signed with mimic's own update key.
+
+- Author, reviewer and approver of releases: Nikhil Sidhu ([@nikhilsidhu](https://github.com/nikhilsidhu)).
+
+This program will not transfer any information to other networked systems unless specifically requested by the user. Its only network requests are to the League client on your own PC and to GitHub, to see whether a newer version exists; the update check can be run by hand from Settings, and it sends nothing about you.
+
 ## Legal
 
 mimic isn't endorsed by Riot Games and doesn't reflect the views or opinions of Riot Games or anyone officially involved in producing or managing Riot Games properties. Riot Games, and all associated properties are trademarks or registered trademarks of Riot Games, Inc.
