@@ -543,8 +543,10 @@ pub fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
     result.map_err(|err| format!("Could not change startup: {err}"))
 }
 
+// The commands that can create a window are async: on Windows, creating one inside a synchronous
+// command deadlocks (see `WebviewWindowBuilder::build`), and the window stays black.
 #[tauri::command]
-pub fn open_manager(app: AppHandle) {
+pub async fn open_manager(app: AppHandle) {
     tray::show_manager(&app);
 }
 
@@ -589,7 +591,7 @@ pub async fn install_update(app: AppHandle, engine: State<'_, Engine>) -> Result
 
 /// Opens the manager with its champion picker showing.
 #[tauri::command]
-pub fn add_champion(app: AppHandle) {
+pub async fn add_champion(app: AppHandle) {
     tray::open_manager(&app, Some("add-champion"));
 }
 
@@ -615,7 +617,7 @@ pub fn open_data_folder(app: AppHandle) -> Result<(), String> {
 /// Shows `message` in the notice popup. For windows that close before their action
 /// has anything to say, like the changed-settings prompt.
 #[tauri::command]
-pub fn notify(app: AppHandle, message: String) {
+pub async fn notify(app: AppHandle, message: String) {
     tray::show_notice(&app, message);
 }
 
