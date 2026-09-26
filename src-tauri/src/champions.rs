@@ -32,19 +32,26 @@ pub struct Champions {
     /// Mastery points of the logged-in account by champion, to list the ones it plays
     /// first. Kept in memory only: it belongs to whoever is logged in.
     mastery: Arc<Mutex<HashMap<u32, u64>>>,
+    /// The list as last read or refreshed, so that a name is not looked up by reading and parsing
+    /// the file again each time.
+    list: Arc<Mutex<Option<Vec<Champion>>>>,
 }
 
 impl Champions {
     /// `data_dir` is mimic's data directory.
     pub fn new(data_dir: &Path) -> Self {
-        Champions { dir: data_dir.join("cache"), mastery: Arc::default() }
+        Champions { dir: data_dir.join("cache"), mastery: Arc::default(), list: Arc::default() }
     }
 
     /// The cached champions, sorted by name. Empty until a client has been seen once.
     pub fn list(&self) -> Vec<Champion> {
-        let Ok(bytes) = std::fs::read(self.dir.join("champions.json")) else { return Vec::new() };
-        let champions: Vec<Champion> = serde_json::from_slice(&bytes).unwrap_or_default();
-        champions.into_iter().filter(|champion| champion.id < GAME_MODE_COPIES).collect()
+        let mut cached = self.list.lock().unwrap();
+        if cached.is_none() {
+            let Ok(bytes) = std::fs::read(self.dir.join("champions.json")) else { return Vec::new() };
+            let champions: Vec<Champion> = serde_json::from_slice(&bytes).unwrap_or_default();
+            *cached = Some(champions.into_iter().filter(|champion| champion.id < GAME_MODE_COPIES).collect());
+        }
+        cached.clone().unwrap_or_default()
     }
 
     pub fn name(&self, id: u32) -> Option<String> {
@@ -94,6 +101,15 @@ impl Champions {
         let icons = self.dir.join("champion-icons");
         std::fs::create_dir_all(&icons)?;
         std::fs::write(self.dir.join("champions.json"), serde_json::to_vec(&champions)?)?;
+        *self.list.lock().unwrap() = Some(champions.clone());
+
+        // Icons of champions no longer listed, such as the game-mode copies, are taken out.
+        for entry in std::fs::read_dir(&icons)?.flatten() {
+            let id = entry.path().file_stem().and_then(|stem| stem.to_str()?.parse::<u32>().ok());
+            if id.is_some_and(|id| !champions.iter().any(|champion| champion.id == id)) {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
 
         let mut fetched = 0;
         for champion in &champions {
@@ -128,17 +144,28 @@ struct Summary {
     name: String,
 }
 
-/// The list has a placeholder "None" with id -1, which is not a champion.
+/// The list has a placeholder "None" with id -1, which is not a champion, and the game-mode copies.
 fn champions_from(summary: Vec<Summary>) -> Vec<Champion> {
     summary
         .into_iter()
-        .filter_map(|entry| Some(Champion { id: u32::try_from(entry.id).ok().filter(|id| *id > 0)?, name: entry.name }))
+        .filter_map(|entry| {
+            let id = u32::try_from(entry.id).ok().filter(|id| *id > 0 && *id < GAME_MODE_COPIES)?;
+            Some(Champion { id, name: entry.name })
+        })
         .collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn skips_the_game_mode_copies() {
+        let summary: Vec<Summary> =
+            serde_json::from_str(r#"[{"id":103,"name":"Ahri"},{"id":60103,"name":"Ahri"}]"#).unwrap();
+        let ids: Vec<u32> = champions_from(summary).into_iter().map(|champion| champion.id).collect();
+        assert_eq!(ids, [103]);
+    }
 
     #[test]
     fn skips_the_placeholder_entry() {
