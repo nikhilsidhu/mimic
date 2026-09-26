@@ -4,37 +4,53 @@ use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager};
-use tauri_plugin_updater::UpdaterExt;
+use tauri_plugin_updater::{Update, UpdaterExt};
 
 /// How long after start the first look happens, and how long between looks after that.
 const FIRST_CHECK: Duration = Duration::from_secs(30);
 const BETWEEN_CHECKS: Duration = Duration::from_secs(6 * 60 * 60);
 
-/// The newer version last found, if any.
+/// The update last found, if any: kept whole, so that installing it installs exactly what was
+/// found. Checking again at that point is what failed: for a few minutes after a release GitHub
+/// can still send some requests for the latest release to the one before, and a second check
+/// then found nothing.
 #[derive(Default)]
-pub struct Available(Mutex<Option<String>>);
+pub struct Available(Mutex<Option<Update>>);
 
 impl Available {
     pub fn version(&self) -> Option<String> {
-        self.0.lock().unwrap().clone()
+        self.0.lock().unwrap().as_ref().map(|update| update.version.clone())
     }
 }
 
-/// Looks for a newer version and remembers the answer.
+/// Looks for a newer version and remembers the answer. A check that finds nothing does not
+/// forget an update found earlier, for the same reason.
 pub async fn check(app: &AppHandle) -> Result<Option<String>, String> {
-    let update = app.updater().map_err(|err| err.to_string())?.check().await.map_err(|err| err.to_string())?;
-    let version = update.map(|update| update.version);
-    *app.state::<Available>().0.lock().unwrap() = version.clone();
+    let found = app.updater().map_err(|err| err.to_string())?.check().await.map_err(|err| err.to_string())?;
+    let available = app.state::<Available>();
+    if let Some(update) = found {
+        tracing::info!(version = %update.version, "an update is available");
+        *available.0.lock().unwrap() = Some(update);
+    } else {
+        tracing::info!("no newer version found");
+    }
     let _ = app.emit("view-changed", ());
-    Ok(version)
+    Ok(available.version())
 }
 
-/// Downloads and runs the newer installer, which closes mimic and starts it again.
+/// Downloads and runs the update found, which closes mimic and starts it again. Checks first
+/// only if none was found yet.
 pub async fn install(app: &AppHandle) -> Result<(), String> {
-    let updater = app.updater().map_err(|err| err.to_string())?;
-    let update = updater.check().await.map_err(|err| err.to_string())?.ok_or("mimic is up to date")?;
+    let known = app.state::<Available>().0.lock().unwrap().clone();
+    let update = match known {
+        Some(update) => update,
+        None => app.updater().map_err(|err| err.to_string())?.check().await.map_err(|err| err.to_string())?.ok_or("mimic is up to date")?,
+    };
     tracing::info!(version = %update.version, "installing an update");
-    update.download_and_install(|_, _| {}, || {}).await.map_err(|err| err.to_string())?;
+    update.download_and_install(|_, _| {}, || {}).await.map_err(|err| {
+        tracing::warn!(version = %update.version, "the update did not install: {err}");
+        err.to_string()
+    })?;
     app.restart()
 }
 
@@ -48,10 +64,9 @@ pub fn watch(app: AppHandle) {
     tauri::async_runtime::spawn(async move {
         tokio::time::sleep(FIRST_CHECK).await;
         loop {
-            match check(&app).await {
-                Ok(Some(version)) => tracing::info!(%version, "an update is available"),
-                Ok(None) => tracing::debug!("no update available"),
-                Err(err) => tracing::debug!("could not look for updates: {err}"),
+            // `check` says what it found; only a failure is left to say here.
+            if let Err(err) = check(&app).await {
+                tracing::info!("could not look for updates: {err}");
             }
             tokio::time::sleep(BETWEEN_CHECKS).await;
         }
