@@ -13,7 +13,8 @@
       #splash { position: fixed; inset: 0; display: grid; place-items: center; color: #111; animation: splash 1.4s ease-in-out infinite; }
       html.dark #splash { color: #fafafa; }
       @keyframes splash { 50% { opacity: 0.45; } }
-      @media (max-height: 320px), (max-width: 420px) { #splash { display: none; } }
+      /* In every window, sized to it: the notice popup is only 64px tall. */
+      #splash svg { width: min(64px, 45vh); height: auto; }
     </style>
     <!-- Before the first paint, so a light theme never flashes dark. Mirrors `lib/theme.ts`. -->
     <script>
@@ -27,8 +28,8 @@
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
-    <!-- The mimic mark while the page loads; the layout removes it once it is up. Not in the
-         small popups, which have no room for it. -->
+    <!-- The mimic mark while the page loads, in every window; the layout removes it once the
+         page is up. -->
     <div id="splash" aria-hidden="true">
       <svg viewBox="212 288 600 448" width="64" fill="none" stroke="currentColor" stroke-width="104" stroke-linecap="round" stroke-linejoin="round">
         <path d="M752 676V468a120 120 0 0 0-240 0" opacity="0.4" />
