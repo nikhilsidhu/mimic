@@ -10,32 +10,23 @@
     "frontendDist": "../build"
   },
   "app": {
-    "windows": [
-      {
-        "label": "main",
-        "title": "mimic",
-        "width": 920,
-        "height": 620,
-        "minWidth": 560,
-        "minHeight": 420,
-        "decorations": false,
-        "shadow": true,
-        "visible": false,
-        "backgroundColor": "#000000"
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$DATA/mimic/cache/**"]
+        "scope": [
+          "$DATA/mimic/cache/**"
+        ]
       }
     }
   },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFFQkE4QUVCN0I0NzNGNEEKUldSS1AwZDc2NHE2SHR2ZXVVb1JnZDNvM3ltQjlyS1ZYS3o1Vm4rWlMxWCs2ZDJhZEpkb0J6V1gK",
-      "endpoints": ["https://github.com/nikhilsidhu/mimic/releases/latest/download/latest.json"],
+      "endpoints": [
+        "https://github.com/nikhilsidhu/mimic/releases/latest/download/latest.json"
+      ],
       "windows": {
         "installMode": "passive"
       }
@@ -43,7 +34,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "publisher": "mimic contributors",
     "copyright": "Copyright (c) 2026 mimic contributors",
     "license": "MIT",

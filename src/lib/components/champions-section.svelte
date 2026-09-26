@@ -42,14 +42,17 @@
     (view?.overlays ?? []).filter((overlay) => overlay.champion.name.toLowerCase().includes(filter.trim().toLowerCase())),
   );
 
-  // The tray panel sends people here to save settings for a champion.
-  onMount(() =>
-    api.onAddChampion(async () => {
-      adding = true;
-      await tick();
-      section?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }),
-  );
+  // The tray panel sends people here to save settings for a champion: by an event if the manager
+  // was open, or in its address if it was opened for this.
+  async function startAdding() {
+    adding = true;
+    await tick();
+    section?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+  onMount(() => {
+    if (new URLSearchParams(location.search).has("add-champion")) startAdding();
+    return api.onAddChampion(startAdding);
+  });
 
   async function run(action: () => Promise<string>) {
     if (busy) return;

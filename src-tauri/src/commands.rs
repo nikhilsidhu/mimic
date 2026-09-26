@@ -1,7 +1,7 @@
 //! What the web UI can ask of the app. Each action answers with a sentence to show.
 
 use serde::Serialize;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, State};
 use tauri_plugin_autostart::ManagerExt;
 use tauri_plugin_clipboard_manager::ClipboardExt;
 use tauri_plugin_dialog::DialogExt;
@@ -590,8 +590,7 @@ pub async fn install_update(app: AppHandle, engine: State<'_, Engine>) -> Result
 /// Opens the manager with its champion picker showing.
 #[tauri::command]
 pub fn add_champion(app: AppHandle) {
-    tray::show_manager(&app);
-    let _ = app.emit("add-champion", ());
+    tray::open_manager(&app, Some("add-champion"));
 }
 
 /// Whether what mimic does unasked is announced in a popup.
@@ -618,6 +617,14 @@ pub fn open_data_folder(app: AppHandle) -> Result<(), String> {
 #[tauri::command]
 pub fn notify(app: AppHandle, message: String) {
     tray::show_notice(&app, message);
+}
+
+/// Puts away the popup that asks, the prompt or the notice, and lets WebView2 hold less memory
+/// for it until it is next shown.
+#[tauri::command]
+pub fn hide_popup(window: tauri::WebviewWindow) {
+    let _ = window.hide();
+    crate::memory::set_hidden(&window, true);
 }
 
 /// Closes the tray panel.

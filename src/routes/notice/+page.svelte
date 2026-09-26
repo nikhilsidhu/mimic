@@ -1,7 +1,6 @@
 <script lang="ts">
   import { invoke } from "@tauri-apps/api/core";
   import { listen } from "@tauri-apps/api/event";
-  import { getCurrentWindow } from "@tauri-apps/api/window";
   import { onMount } from "svelte";
 
   const VISIBLE_MS = 4000;
@@ -12,7 +11,7 @@
   function show(text: string) {
     message = text;
     clearTimeout(timer);
-    timer = setTimeout(() => getCurrentWindow().hide(), VISIBLE_MS);
+    timer = setTimeout(() => invoke("hide_popup"), VISIBLE_MS);
   }
 
   onMount(() => {

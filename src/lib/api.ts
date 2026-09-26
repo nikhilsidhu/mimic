@@ -160,6 +160,8 @@ export const getShowsNotices = () => invoke<boolean>("shows_notices");
 export const setShowsNotices = (enabled: boolean) => invoke<void>("set_shows_notices", { enabled });
 /** Shows a sentence in the notice popup next to the tray. */
 export const notify = (message: string) => invoke<void>("notify", { message });
+/** Puts away the popup this is called from, and lets it hold less memory while hidden. */
+export const hidePopup = () => invoke<void>("hide_popup");
 /** Closes the tray panel. */
 export const dismiss = () => invoke<void>("dismiss");
 export const quit = () => invoke<void>("quit");

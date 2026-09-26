@@ -20,6 +20,8 @@ const REOPEN_GUARD: Duration = Duration::from_millis(250);
 /// How long after a "lost focus" event the panel is checked for still being inactive.
 const BLUR_SETTLE: Duration = Duration::from_millis(100);
 
+/// The manager's window label.
+pub const MANAGER: &str = "main";
 /// The panel's window label, which is also its frontend route.
 pub const PANEL: &str = "panel";
 const PANEL_SIZE: (f64, f64) = (320.0, 400.0);
@@ -93,11 +95,11 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
     }
 
     if crate::demo::enabled() {
+        show_manager(app);
         // Tall enough to show every section at once.
-        if let Some(manager) = app.get_webview_window("main") {
+        if let Some(manager) = app.get_webview_window(MANAGER) {
             let _ = manager.set_size(tauri::LogicalSize::new(920.0, 1250.0));
         }
-        show_manager(app);
         show_drift_prompt(app);
         toggle_panel(app, PhysicalPosition::new(0.0, 0.0))?;
         // For taking screenshots: the windows still draw themselves off screen, and nobody
@@ -109,7 +111,7 @@ pub fn init(app: &AppHandle, engine: Engine) -> tauri::Result<()> {
                 // what it shows, and a window that has not come up yet is shown.
                 loop {
                     tokio::time::sleep(std::time::Duration::from_secs(3)).await;
-                    for (index, label) in ["main", PANEL, "drift"].into_iter().enumerate() {
+                    for (index, label) in [MANAGER, PANEL, "drift"].into_iter().enumerate() {
                         if let Some(window) = app.get_webview_window(label) {
                             let _ = window.show();
                             let _ = window.set_position(PhysicalPosition::new(-6000 + 1500 * index as i32, -6000));
@@ -154,6 +156,7 @@ fn panel_window(app: &AppHandle) -> tauri::Result<WebviewWindow> {
         .skip_taskbar(true)
         .visible(false)
         .build()
+        .inspect(|window| crate::memory::set_hidden(window, true))
 }
 
 /// Opens the panel above the tray icon, or closes it if it is open. `click` is where
@@ -178,6 +181,7 @@ fn toggle_panel(app: &AppHandle, click: PhysicalPosition<f64>) -> tauri::Result<
         let y = area.position.y + area.size.height as i32 - height - margin;
         window.set_position(PhysicalPosition::new(x, y))?;
     }
+    crate::memory::set_hidden(&window, false);
     window.show()?;
     window.set_focus()
 }
@@ -205,15 +209,48 @@ pub fn hide_panel(app: &AppHandle) -> tauri::Result<()> {
         if window.is_visible()? {
             *app.state::<PanelHidden>().0.lock().unwrap() = Some(Instant::now());
             window.hide()?;
+            crate::memory::set_hidden(&window, true);
         }
     }
     Ok(())
 }
+/// Opens the manager. It is made when it is opened and closed for good when it is closed, so that
+/// its page takes no memory in between: it is the biggest window, and the least used. `ask` is a
+/// request for the page once it is up, such as `add-champion`.
 pub fn show_manager(app: &AppHandle) {
-    if let Some(window) = app.get_webview_window("main") {
+    open_manager(app, None);
+}
+
+pub fn open_manager(app: &AppHandle, ask: Option<&str>) {
+    if let Some(window) = app.get_webview_window(MANAGER) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
+        if let Some(ask) = ask {
+            let _ = window.emit(ask, ());
+        }
+        return;
+    }
+    // A page that is only now loading cannot hear an event yet; it reads the request from its
+    // address instead.
+    let url = match ask {
+        Some(ask) => format!("index.html?{ask}"),
+        None => "index.html".to_owned(),
+    };
+    let built = WebviewWindowBuilder::new(app, MANAGER, WebviewUrl::App(url.into()))
+        .title("mimic")
+        .background_color(WINDOW_GROUND)
+        .inner_size(920.0, 620.0)
+        .min_inner_size(560.0, MANAGER_MIN_HEIGHT)
+        .decorations(false)
+        .shadow(true)
+        .center()
+        .build();
+    match built {
+        Ok(window) => {
+            let _ = window.set_focus();
+        }
+        Err(err) => tracing::error!("could not open the manager: {err}"),
     }
 }
 
@@ -256,7 +293,7 @@ pub fn fit_drift_prompt(app: &AppHandle, height: f64) -> tauri::Result<()> {
 /// Makes the manager as tall as what it shows, up to what the screen has room for, and centres
 /// it. The page asks for this once, when it first knows how much there is.
 pub fn fit_manager(app: &AppHandle, height: f64) -> tauri::Result<()> {
-    let Some(window) = app.get_webview_window("main") else { return Ok(()) };
+    let Some(window) = app.get_webview_window(MANAGER) else { return Ok(()) };
     let Some(monitor) = window.current_monitor()?.or(window.primary_monitor()?) else { return Ok(()) };
     let scale = monitor.scale_factor();
     let room = monitor.work_area().size.height as f64 / scale - 2.0 * MARGIN;
@@ -296,5 +333,6 @@ fn show_popup(app: &AppHandle, label: &str, width: f64, height: f64) -> tauri::R
     };
 
     place_in_corner(&window)?;
+    crate::memory::set_hidden(&window, false);
     window.show()
 }

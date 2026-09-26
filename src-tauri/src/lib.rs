@@ -4,6 +4,7 @@ mod demo;
 pub mod engine;
 pub mod lcu;
 mod logging;
+mod memory;
 pub mod platform;
 pub mod profiles;
 pub mod settings;
@@ -90,6 +91,7 @@ pub fn run() {
             commands::set_shows_notices,
             commands::open_data_folder,
             commands::notify,
+            commands::hide_popup,
             commands::dismiss,
             commands::quit,
         ])
@@ -102,11 +104,6 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| match event {
-            // mimic lives in the tray: closing the manager hides it.
-            WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
-                api.prevent_close();
-                let _ = window.hide();
-            }
             // The tray panel behaves like a menu: clicking anywhere else dismisses it.
             WindowEvent::Focused(false) if window.label() == tray::PANEL => {
                 tray::hide_panel_if_inactive(window.clone());
